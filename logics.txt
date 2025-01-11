@@ -1,0 +1,52 @@
+Data Loading to app.py:
+    the data is loaded from the sqlite to the script for implementation. It is transformed to a parquet file for implementation
+    However, before the tranformation to parquet, the data is filtered by date so to avoid loading the entire data, thereby slowing down the application
+    the parquet file is updated every two minutes -  so to capture the additional collected data 
+
+    The constructor initializes:
+    Database path (db_path): Path to the SQLite database file.
+    Table name (table_name): The specific table to query data from.
+    Refresh interval (refresh_interval): Time interval to decide when to refresh the data (default: 2 minutes).
+    Start date offset (start_days_ago): Defines how far back the data query should start (default: 51 days).
+    Sets default values in st.session_state:
+    last_update_time: Tracks the last time data was refreshed.
+    startDate and stopDate: Date range for filtering.
+    Check if Reload is Necessary (should_reload_data)
+    Compares the current time with st.session_state['last_update_time'].
+    If the difference exceeds the refresh_interval, it indicates that the data needs to be reloaded.
+    Load Data from the Database (load_data)
+    Queries data from the database table for the specified date range (start_date to stop_date).
+    Writes the queried data to a Parquet file (workingData.parquet) using the Fastparquet engine for speed and compact storage.
+    Caching:
+    Uses @st.cache_data to store the loaded data in memory, avoiding redundant queries unless explicitly needed.
+
+    Fetch Data (get_data)
+    Checks if the data needs to be refreshed using should_reload_data.
+    If refresh is required:
+    Updates last_update_time in the session state.
+    Reloads data and writes it to the Parquet file.
+    Reads and returns the Parquet file contents.
+    If no refresh is needed:
+    Reads the existing Parquet file without querying the database again.
+
+Date and Time Selection:
+    A date input widget (col6.date_input) is displayed to allow users to select a start date and stop date.
+    The default date range is set to:
+    1. Start Date: 8 weeks before the latest date in the data.LogTimestamp column.
+    2. Stop Date: The latest date in data.LogTimestamp.
+    While the stop date is yet to be selected, the nextday is used as the stop date, but overriden once selected
+    Dates are formatted as "YYYY-MM-DD".
+    A Time Input Widgets
+    Two time input widgets are displayed:
+    1. Start Time (col7.time_input): Default step is 5 minutes (300 seconds).
+    2. Stop Time (col8.time_input): Default step is also 5 minutes.
+    Combined the Date and Time to get a whole string of date and time
+    The start date and stop date selected by the user are extracted from the controlDates date input.
+    The start and stop times are retrieved from their respective time input widgets.
+    These values are combined into full datetime strings (fullStart and fullStop) using the format "YYYY-MM-DD HH:MM:SS".
+    Saved to st.session_state
+    The combined start and stop datetime values are stored in st.session_state:
+    st.session_state['startDate']: Stores the full start datetime.
+    st.session_state['stopDate']: Stores the full stop datetime.
+    This ensures that the user's selections persist across the app's usage.
+

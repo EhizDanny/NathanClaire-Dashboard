@@ -1,0 +1,7 @@
+{
+    "client_server": "4.149.240.230",
+    "client_db": "Dynatrace_API",
+    "client_db_username": "data_analysis",
+    "client_db_password": "ncg-data-123",
+    "client_table_name": "Infrastructure_Utilization"
+}

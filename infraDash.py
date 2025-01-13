@@ -65,6 +65,7 @@ load_css(css_path)
 # Get a start and stop filter date and time for first time loading. Update this date later to tally with users selected date
 if 'stopDate' not in st.session_state:
     st.session_state['stopDate'] = datetime.today().date().strftime("%Y-%m-%d")
+    st.session_state['usageMonitor'] = 0  # monitor the number of times the has been ran.
 if 'startDate' not in st.session_state:
     st.session_state['startDate'] = (datetime.today().date() -timedelta(days=51)).strftime("%Y-%m-%d")
 if 'startTime' not in st.session_state:
@@ -75,6 +76,7 @@ if 'autoDataRefreshHelper' not in st.session_state:
     st.session_state['autoDataRefreshHelper'] = 0
 if 'latestLog' not in st.session_state:
     st.session_state['latestlog'] = datetime.now()
+
 
 start_time = time.time()
 
@@ -105,6 +107,11 @@ def liveDataHandler(db_path, table_name, start_date, stop_date, autoChanger):
 
 data = liveDataHandler('EdgeDB 2', 'Infra_Utilization', st.session_state['startDate'], st.session_state['stopDate'],  st.session_state['autoDataRefreshHelper'])
 data['HostAndIP'] = data['Hostname'] + data['IPAddress'].str.replace('"', '')
+
+# save the data in session_state and keep track of the selected server whose information is to be displayed
+st.session_state['data'] = data.copy()
+st.session_state['filteredData'] = st.session_state['data'].copy()
+
 calc = inf(data)
 st.session_state.latestlog = calc.latestLog
 
@@ -174,189 +181,243 @@ with tab1:
 
 
 
-     
-    # Filters Container 
-    with stylable_container(
-            key="container_with_border",
+    st.sidebar.write(len(st.session_state['data']))   
+    @st.fragment
+    def filters():
+        #  -------------------------------------------------- Filters Container --------------------------------------------------
+        with stylable_container(
+                key="container_with_border",
+                css_styles="""{
+                        border: 1px solid rgba(49, 51, 63, 0.2);
+                        box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
+                        border-radius: 0.3rem;
+                        padding-bottom: 5px;
+                        margin-top: -10px
+                    }"""):
+            
+            def updateFilter(key, columnName): # Define a callback function to update the data when a filter is selected
+                    # if st.session_state[key]:
+                    #     if st.session_state[key] != 'Select All':
+                    #         st.session_state['filteredData'] = st.session_state['filteredData'][st.session_state['filteredData'][columnName] == st.session_state[key]]
+                    #     else:
+                    #         st.session_state['filteredData'] = st.session_state['data'].copy()
+                    # else:  
+                    #     pass
+                    # Apply each filter dynamically
+                    st.session_state['filteredData'] = st.session_state['data'].copy()
+                    if st.session_state.ao != "Select All":
+                        st.session_state['filteredData'] = st.session_state['filteredData'][st.session_state['filteredData']["ApplicationOwner"] == st.session_state.ao]
+                    if st.session_state.an != "Select All":
+                        st.session_state['filteredData'] = st.session_state['filteredData'][st.session_state['filteredData']["ApplicationName"] == st.session_state.an]
+                    if st.session_state.vend != "Select All":
+                        st.session_state['filteredData'] = st.session_state['filteredData'][st.session_state['filteredData']["Vendor"] == st.session_state.vend]
+                    if st.session_state.dc != "Select All":
+                        st.session_state['filteredData'] = st.session_state['filteredData'][st.session_state['filteredData']["Datacenter"] == st.session_state.dc]
+                    if st.session_state.mz != "Select All":
+                        st.session_state['filteredData'] = st.session_state['filteredData'][st.session_state['filteredData']["ManagementZone"] == st.session_state.mz]
+                    if st.session_state.oss != "Select All":
+                        st.session_state['filteredData'] = st.session_state['filteredData'][st.session_state['filteredData']["OS"] == st.session_state.oss]
+
+            appOwnerOptions = [option for option in st.session_state['filteredData']['ApplicationOwner'].unique().tolist()+['Select All'] if option in st.session_state['filteredData']['ApplicationOwner'].unique().tolist()  or option == 'Select All']
+            appNameOptions = [option for option in st.session_state['filteredData']['ApplicationName'].unique().tolist()+['Select All'] if option in st.session_state['filteredData']['ApplicationName'].unique().tolist()  or option == 'Select All']
+            vendorOptions = [option for option in st.session_state['filteredData']['Vendor'].unique().tolist()+['Select All'] if option in st.session_state['filteredData']['Vendor'].unique().tolist()  or option == 'Select All']
+            dataCenterOptions = [option for option in st.session_state['filteredData']['Datacenter'].unique().tolist()+['Select All'] if option in st.session_state['filteredData']['Datacenter'].unique().tolist()  or option == 'Select All']
+            mgtZoneOptions = [option for option in st.session_state['filteredData']['ManagementZone'].unique().tolist()+['Select All'] if option in st.session_state['filteredData']['ManagementZone'].unique().tolist()  or option == 'Select All']
+            osOptions = [option for option in st.session_state['filteredData']['OS'].unique().tolist()+['Select All'] if option in st.session_state['filteredData']['OS'].unique().tolist()  or option == 'Select All']  
+                    
+            col7, appOwner, appName, vendor, dataCenter, mgtZone, os = st.columns([4, 1.3, 1.3, 1, 1, 1.3, 1.3])
+            appOwner.selectbox('Application Owner', appOwnerOptions, index=len(appOwnerOptions)-1, key='ao', on_change=updateFilter, args=('ao', 'ApplicationOwner'))
+            appName.selectbox('Application Name', appNameOptions, index=len(appNameOptions)-1, key='an', on_change=updateFilter, args=('an', 'ApplicationName'))
+            vendor.selectbox('Vendor', vendorOptions, index=len(vendorOptions)-1, key='vend', on_change=updateFilter, args=('vend', 'Vendor'))
+            dataCenter.selectbox('Data Center', dataCenterOptions, index=len(dataCenterOptions)-1, key='dc', on_change=updateFilter, args=('dc', 'Datacenter'))
+            mgtZone.selectbox('Management Zone', mgtZoneOptions, index=len(mgtZoneOptions)-1, key='mz', on_change=updateFilter, args=('mz', 'ManagementZone'))
+            os.selectbox('OS', osOptions, index=len(osOptions)-1, key='oss', on_change=updateFilter, args=('oss', 'OS'))    
+        
+            st.session_state['selectedServer'] = st.session_state['filteredData'].HostAndIP.iloc[0] 
+            st.session_state['metricData'] = st.session_state['filteredData'].query("HostAndIP == @st.session_state['selectedServer']")
+        serverMetrics()
+
+
+        # ------------------------------------------------------- Server Metrics Container -------------------------------------------------------
+    @st.fragment
+    def serverMetrics(): 
+        def updateServerMetrics(): # Callback function to update the server metrics when a new server is selected
+            if st.session_state.serverList:
+                st.session_state['selectedServer'] = st.session_state.serverList
+                st.session_state['metricData'] = st.session_state['filteredData'].query("HostAndIP == @st.session_state['selectedServer']")
+
+        containerTwo = st.container()
+        with containerTwo:
+            col1, col2, col3, col4, col5, col6, col7, col8 = containerTwo.columns([2,1,3,1,1,1,1,1])
+            with col1:
+                col1.markdown(f"""
+                        <div class="container metrics text-center">
+                                <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >Op System</p>
+                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].query("HostAndIP == @st.session_state['selectedServer']")['OS'].iloc[0]}</p>
+                        </div> """, unsafe_allow_html= True)
+            with col2:
+                col2.markdown(f"""
+                        <div class="container metrics text-center">
+                                <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >Hostname</p>
+                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].Hostname.iloc[0]}</p>
+                        </div> """, unsafe_allow_html= True)
+            with col3:
+                col3.markdown(f"""
+                        <div class="container metrics text-center">
+                                <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >IP Address</p>
+                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].IPAddress.iloc[0]}</p>
+                        </div> """, unsafe_allow_html= True)
+            with col4:
+                col4.markdown(f"""
+                        <div class="container metrics text-center">
+                                <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >Total Server</p>
+                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{calc.totalServer}</p>
+                        </div> """, unsafe_allow_html= True)
+            with col5:
+                col5.markdown(f"""
+                        <div class="container metrics text-center">
+                                <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >Active Server</p>
+                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{len(data.Hostname.unique())}</p>
+                        </div> """, unsafe_allow_html= True)
+            with col6:
+                col6.markdown(f"""
+                        <div class="container metrics text-center">
+                                <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >App Name</p>
+                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].ApplicationName.iloc[0]}</p>
+                        </div> """, unsafe_allow_html= True)
+            with col7:
+                col7.markdown(f"""
+                        <div class="container metrics text-center">
+                                <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >App Owner</p>
+                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].ApplicationOwner.iloc[0]}</p>
+                        </div> """, unsafe_allow_html= True)
+            with col8:
+                col8.markdown(f"""
+                        <div class="container metrics text-center">
+                                <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >Vendor</p>
+                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].Vendor.iloc[0]}</p>
+                        </div> """, unsafe_allow_html= True)
+
+            containerTwo.markdown('<br>', unsafe_allow_html=True)
+        antd.divider(label='Infrastructure Analysis', icon='house', align='center', color='gray')
+
+        # VISUALS 
+        with stylable_container(
+            key="visual_container",
             css_styles="""{
-                    border: 1px solid rgba(49, 51, 63, 0.2);
-                    box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
-                    border-radius: 0.3rem;
-                    padding-bottom: 5px;
-                    margin-top: -10px
-                }"""):
-        col7, appOwner, appName, vendor, dataCenter, mgtZone, os = st.columns([4, 1.3, 1.3, 1, 1, 1.3, 1])
-        ao = appOwner.selectbox('Application Owner', data['ApplicationOwner'].unique())
-        an = appName.selectbox('Application Name', data['ApplicationName'].unique())
-        vend = vendor.selectbox('Vendor', data['Vendor'].unique())
-        dc = dataCenter.selectbox('Data Center', data['Datacenter'].unique())
-        mz = mgtZone.selectbox('Management Zone', data['ManagementZone'].unique())
-        oss = os.selectbox('OS', data['OS'].unique())
+                        # border: 1px solid rgba(49, 51, 63, 0.2);
+                        box-shadow: rgba(0, 0, 0, 0.15) 0px 5px 15px 0px;
+                        border-radius: 0.3rem;
+                        padding: 5px 10px;
+                        margin-top: -10px;
+                    }"""):
+            col1, col2, col3, col4 = st.columns([2,5,1,2], border = True)
+            with col1:
+                col1.selectbox('Server List', st.session_state['filteredData'].HostAndIP.unique().tolist(), key='serverList', on_change=updateServerMetrics, help='Select a server to view its metrics', index = 0) 
+                st.session_state['metricData']['LogTimestamp'] = pd.to_datetime(st.session_state['metricData']['LogTimestamp'])
+            with col2:
+                netType = col2.selectbox('Network Bound', ['Received and Sent', 'Aggregate'], index = 0)
+                if netType == 'Received and Sent':
+                    fig = px.area(data_frame=st.session_state['metricData'],  x='LogTimestamp', y=['NetworkTrafficReceived', 'NetworkTrafficSent'], height = 280)
+                    col2.plotly_chart(fig)
+                elif netType == 'Aggregate':
+                    fig = px.line(data_frame=st.session_state['metricData'],  x='LogTimestamp', y='NetworkTrafficAggregate', height = 280)
+                    col2.plotly_chart(fig)
+            with col3:
+                calc2 = inf(st.session_state['metricData'])
+                col3.metric(label = 'Disk Space(GB)', value = round(calc2.currentTotalDisk,1), delta = None, border=True)
+                percRemaining = 100 - calc2.currentDisk
+                col3.metric(label = 'Free Disk(GB)', value = round(calc2.currentDiskAvail, 1), delta = round(percRemaining,2), delta_color= 'inverse' if percRemaining < 20 else 'normal', border=True)
+                col3.metric(label='Memory(GB)', value = round(calc2.currentTotalMemory, 1), delta = None, border=True)
+            with col4:
+                fig1 = go.Figure(go.Indicator(
+                    mode = "gauge+number+delta",
+                    value = calc2.currentCPU,
+                    domain = {'x': [0, 1], 'y': [0, 1]},
+                    # title = {'text': "Current CPU Load(%)", 'font': {'size': 18}},
+                    # delta = {'reference': 400, 'increasing': {'color': "RebeccaPurple"}},
+                    gauge = {
+                        'axis': {'range': [1, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
+                        'bar': {'color': '#16C47F' if calc2.currentCPU <= 75 else '#FFF574' if calc2.currentCPU <= 85 else '#F93827'},
+                        # 'bgcolor': "white",
+                        'borderwidth': 1,
+                        'bordercolor': "white",
+                        'steps': [
+                            {'range': [0, 80], 'color': '#F0F2F6'},
+                            {'range': [80, 100], 'color': '#FFEDED'}],
+                        'threshold': {
+                            'line': {'color': "red", 'width': 4},
+                            'thickness': 0.75,
+                            'value': 80}}))
+                fig1.update_layout(
+                    height=115,
+                    # paper_bgcolor='lightgray',  
+                    paper_bgcolor='rgba(0,0,0,0)',  # Transparent background
+                    # plot_bgcolor='cyan',
+                    margin=dict(l=0, r=0, t=40, b=10) ,
+                    title={'text': "Current CPU Load(%)", 'font': {'size': 12}, 'x': 0.3},) # Remove extra space around the gauge
+                col4.plotly_chart(fig1, use_container_width=True)
+                
+                fig2 = go.Figure(go.Indicator(
+                    mode = "gauge+number+delta",
+                    value = calc2.currentMemory,
+                    domain = {'x': [0, 1], 'y': [0, 1]},
+                    # title = {'text': "Current Memory Load(%)", 'font': {'size': 18}},
+                    # delta = {'reference': 400, 'increasing': {'color': "RebeccaPurple"}},
+                    gauge = {
+                        'axis': {'range': [1, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
+                        'bar': {'color': '#16C47F' if calc2.currentMemory <= 75 else '#FFF574' if calc2.currentMemory <= 85 else '#F93827'},
+                        'bgcolor': "gray",
+                        'borderwidth': 1,
+                        'bordercolor': "white",
+                        'steps': [
+                            {'range': [0, 80], 'color': '#F0F2F6'},
+                            {'range': [80, 100], 'color': '#FFEDED'}],
+                        'threshold': {
+                            'line': {'color': "red", 'width': 4},
+                            'thickness': 0.75,
+                            'value': 80}}))
+                fig2.update_layout(
+                    height=115,
+                    # paper_bgcolor='lightgray',  
+                    paper_bgcolor='rgba(0,0,0,0)',  # Transparent background
+                    # plot_bgcolor='cyan',
+                    margin=dict(l=0, r=0, t=40, b=10) ,
+                    title={'text': "Current Memory Load(%)", 'font': {'size': 12}, 'x': 0.3},) # Remove extra space around the gauge
+                col4.plotly_chart(fig2)
+                
+                fig3 = go.Figure(go.Indicator(
+                    mode = "gauge+number+delta",
+                    value = calc2.currentDisk,
+                    domain = {'x': [0, 1], 'y': [0, 1]},
+                    # title = {'text': "Current Disk Load(%)", 'font': {'size': 18}},
+                    # delta = {'reference': 400, 'increasing': {'color': "RebeccaPurple"}},
+                    gauge = {
+                        'axis': {'range': [1, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
+                        'bar': {'color': '#16C47F' if calc2.currentDisk <= 75 else '#FFF574' if calc2.currentDisk <= 85 else '#F93827'},
+                        # 'bgcolor': "white",
+                        'borderwidth': 1,
+                        'bordercolor': "white",
+                        'steps': [
+                            {'range': [0, 80], 'color': '#F0F2F6'},
+                            {'range': [80, 100], 'color': '#FFEDED'}],
+                        'threshold': {
+                            'line': {'color': "red", 'width': 4},
+                            'thickness': 0.75,
+                            'value': 80}}))
+                fig3.update_layout(
+                    height=115,
+                    # paper_bgcolor='lightgray',  
+                    paper_bgcolor='rgba(0,0,0,0)',  # Transparent background
+                    # plot_bgcolor='cyan',
+                    margin=dict(l=0, r=0, t=40, b=10) ,
+                    title={'text': "Current Disk Load(%)", 'font': {'size': 12}, 'x': 0.3},) # Remove extra space around the gauge
+                col4.plotly_chart(fig3, use_container_width=True)
 
-    containerTwo = tab1.container()
-    with containerTwo:
-        col1, col2, col3, col4, col5, col6, col7, col8 = containerTwo.columns([2,1,3,1,1,1,1,1])
-        with col1:
-            col1.markdown(f"""
-                    <div class="container metrics text-center">
-                            <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >Op System</p>
-                            <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{data.OS.iloc[0]}</p>
-                    </div> """, unsafe_allow_html= True)
-        with col2:
-            col2.markdown(f"""
-                    <div class="container metrics text-center">
-                            <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >Hostname</p>
-                            <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{data.Hostname.iloc[0]}</p>
-                    </div> """, unsafe_allow_html= True)
-        with col3:
-            col3.markdown(f"""
-                    <div class="container metrics text-center">
-                            <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >IP Address</p>
-                            <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{data.IPAddress.iloc[0]}</p>
-                    </div> """, unsafe_allow_html= True)
-        with col4:
-            col4.markdown(f"""
-                    <div class="container metrics text-center">
-                            <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >Total Server</p>
-                            <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{calc.totalServer}</p>
-                    </div> """, unsafe_allow_html= True)
-        with col5:
-            col5.markdown(f"""
-                    <div class="container metrics text-center">
-                            <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >Active Server</p>
-                            <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{len(data.Hostname.unique())}</p>
-                    </div> """, unsafe_allow_html= True)
-        with col6:
-            col6.markdown(f"""
-                    <div class="container metrics text-center">
-                            <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >App Name</p>
-                            <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{data.ApplicationName.iloc[0]}</p>
-                    </div> """, unsafe_allow_html= True)
-        with col7:
-            col7.markdown(f"""
-                    <div class="container metrics text-center">
-                            <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >App Owner</p>
-                            <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{data.ApplicationOwner.iloc[0]}</p>
-                    </div> """, unsafe_allow_html= True)
-        with col8:
-            col8.markdown(f"""
-                    <div class="container metrics text-center">
-                            <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >Vendor</p>
-                            <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{data.Vendor.iloc[0]}</p>
-                    </div> """, unsafe_allow_html= True)
+        st.session_state['usageMonitor'] += 1
 
-    tab1.markdown('<br>', unsafe_allow_html=True)
-    antd.divider(label='Infrastructure Analysis', icon='house', align='center', color='gray')
-
-# VISUALS 
-    with stylable_container(
-        key="visual_container",
-        css_styles="""{
-                    # border: 1px solid rgba(49, 51, 63, 0.2);
-                    box-shadow: rgba(0, 0, 0, 0.15) 0px 5px 15px 0px;
-                    border-radius: 0.3rem;
-                    padding: 5px 10px;
-                    margin-top: -10px;
-
-                }"""):
-        col1, col2, col3, col4 = st.columns([2,5,1,2], border = True)
-        with col1:
-            selServer = col1.selectbox('Server List', calc.servers)
-            forNow = data[data['HostAndIP'] == selServer]
-            forNow['LogTimestamp'] = pd.to_datetime(forNow['LogTimestamp'])
-            forNow.set_index('LogTimestamp', inplace = True)
-        with col2:
-            netType = col2.selectbox('Network Bound', ['Received', 'Sent', 'Aggregate'], index = 2)
-            if netType == 'Recieved':
-                fig = px.line(x = forNow.index, y = forNow.NetworkTrafficReceived, height = 280)
-                col2.plotly_chart(fig)
-            elif netType == 'Sent':
-                fig = px.line(x = forNow.index, y = forNow.NetworkTrafficSent, height = 280)
-                col2.plotly_chart(fig)
-            elif netType == 'Aggregate':
-                fig = px.line(x = forNow.index, y = forNow.NetworkTrafficAggregate, height = 280)
-                col2.plotly_chart(fig)
-        with col3:
-            col3.metric(label = 'Disk Space(GB)', value = round(calc.currentTotalDisk,1), delta = None, border=True)
-            percRemaining = (calc.currentDiskAvail/calc.currentTotalDisk) * 100
-            col3.metric(label = 'Free Disk(GB)', value = round(calc.currentFreeDisk, 1), delta = round(percRemaining,2), delta_color= 'inverse' if percRemaining < 20 else 'normal', border=True)
-            col3.metric(label='Memory(GB)', value = round(calc.currentTotalMemory, 1), delta = None, border=True)
-        with col4:
-            fig1 = go.Figure(go.Indicator(
-                mode = "gauge+number+delta",
-                value = calc.currentCPU,
-                domain = {'x': [0, 1], 'y': [0, 1]},
-                title = {'text': "Current CPU Load(%)", 'font': {'size': 18}},
-                # delta = {'reference': 400, 'increasing': {'color': "RebeccaPurple"}},
-                gauge = {
-                    'axis': {'range': [1, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
-                    'bar': {'color': '#16C47F' if calc.currentCPU <= 75 else 'FFF574' if calc.currentCPU <= 85 else 'F93827'},
-                    # 'bgcolor': "white",
-                    'borderwidth': 1,
-                    'bordercolor': "white",
-                    'steps': [
-                        {'range': [0, 80], 'color': '#F0F2F6'},
-                        {'range': [80, 100], 'color': '#FFEDED'}],
-                    'threshold': {
-                        'line': {'color': "red", 'width': 4},
-                        'thickness': 0.75,
-                        'value': 80}}))
-            fig1.update_layout(
-                height=200,
-                paper_bgcolor='rgba(0,0,0,0)',  # Transparent background
-                margin=dict(l=0, r=0, t=0, b=0) ) # Remove extra space around the gauge
-            col4.plotly_chart(fig1, use_container_width=True)
-            
-            fig2 = go.Figure(go.Indicator(
-                mode = "gauge+number+delta",
-                value = calc.currentMemory,
-                domain = {'x': [0, 1], 'y': [0, 1]},
-                title = {'text': "Current Memory Load(%)", 'font': {'size': 18}},
-                # delta = {'reference': 400, 'increasing': {'color': "RebeccaPurple"}},
-                gauge = {
-                    'axis': {'range': [1, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
-                    'bar': {'color': '#16C47F' if calc.currentCPU <= 75 else 'FFF574' if calc.currentCPU <= 85 else 'F93827'},
-                    'bgcolor': "gray",
-                    'borderwidth': 1,
-                    'bordercolor': "white",
-                    'steps': [
-                        {'range': [0, 80], 'color': '#F0F2F6'},
-                        {'range': [80, 100], 'color': '#FFEDED'}],
-                    'threshold': {
-                        'line': {'color': "red", 'width': 4},
-                        'thickness': 0.75,
-                        'value': 80}}))
-            fig2.update_layout(
-                height=200,
-                paper_bgcolor='rgba(0,0,0,0)',  # Transparent background
-                margin=dict(l=0, r=0, t=0, b=0) ) # Remove extra space around the gauge
-            col4.plotly_chart(fig2)
-            
-            fig3 = go.Figure(go.Indicator(
-                mode = "gauge+number+delta",
-                value = calc.currentDisk,
-                domain = {'x': [0, 1], 'y': [0, 1]},
-                title = {'text': "Current Disk Load(%)", 'font': {'size': 18}},
-                # delta = {'reference': 400, 'increasing': {'color': "RebeccaPurple"}},
-                gauge = {
-                    'axis': {'range': [1, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
-                    'bar': {'color': '#16C47F' if calc.currentCPU <= 75 else 'FFF574' if calc.currentCPU <= 85 else 'F93827'},
-                    # 'bgcolor': "white",
-                    'borderwidth': 1,
-                    'bordercolor': "white",
-                    'steps': [
-                        {'range': [0, 80], 'color': '#F0F2F6'},
-                        {'range': [80, 100], 'color': '#FFEDED'}],
-                    'threshold': {
-                        'line': {'color': "red", 'width': 4},
-                        'thickness': 0.75,
-                        'value': 80}}), layout = go.Layout(height = 250))
-            fig3.update_layout(
-                height=200,
-                paper_bgcolor='rgba(0,0,0,0)',  # Transparent background
-                margin=dict(l=0, r=0, t=0, b=0) ) # Remove extra space around the gauge
-            col4.plotly_chart(fig2)
-            col4.plotly_chart(fig3, use_container_width=True)
+    filters()    
+    st.session_state['usageMonitor'] += 1
 
 
 
@@ -365,9 +426,7 @@ with tab1:
 
 
 
-
-
-
+st.session_state['usageMonitor'] += 1
 end_time = time.time()
 uiloading_time = end_time - start_time
 st.sidebar.markdown(f"App UI and Analysis loaded in {uiloading_time:.2f} seconds.")

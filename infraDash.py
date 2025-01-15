@@ -108,6 +108,40 @@ def liveDataHandler(db_path, table_name, start_date, stop_date, autoChanger):
 data = liveDataHandler('EdgeDB 2', 'Infra_Utilization', st.session_state['startDate'], st.session_state['stopDate'],  st.session_state['autoDataRefreshHelper'])
 data['HostAndIP'] = data['Hostname'] + data['IPAddress'].str.replace('"', '')
 
+if not data.empty:
+    st.session_state["data_empty"] = False
+else:
+    st.session_state["data_empty"] = True
+
+# def emptinessDataCheck():
+#     if not data.empty:
+#         st.session_state["data_empty"] = False
+#     else:
+#         st.session_state["data_empty"] = True
+    
+#     if st.session_state["data_empty"] == True: # Alert dialog if data is empty
+#         dialog_result = shad.alert_dialog(
+#             title="No Data Alert",
+#             description="There is currently no data within your selected timeframe. Click refresh to have the minimum date range with data loaded.",
+#             confirm_label="Refresh",
+#             cancel_label="Cancel",
+#             key="alert_dialog_1",
+#             show=st.session_state["data_empty"]
+#         )
+#         if dialog_result == "cancel":
+#             st.session_state["data_empty"] = False  # Keep the alert visible if no data   
+#         elif dialog_result == "refresh":
+#             st.session_state["data_empty"] = False
+#             st.session_state['startDate'] = (datetime.today().date() -timedelta(days=51)).strftime("%Y-%m-%d")
+#             st.session_state['stopDate'] = datetime.today().date().strftime("%Y-%m-%d")
+#     if not st.session_state["data_empty"]:
+#         # Display the dashboard once the alert has been addressed
+#         st.success("Dashboard is loading...")
+#         # Add your dashboard rendering logic here
+#         st.write("Your dashboard goes here!")
+# emptinessDataCheck()
+
+
 # save the data in session_state and keep track of the selected server whose information is to be displayed
 st.session_state['data'] = data.copy()
 st.session_state['filteredData'] = st.session_state['data'].copy()
@@ -141,10 +175,12 @@ dataloading_time = end_time - start_time
 start_time = time.time()
 
 # Navigation Bar Top 
-st.markdown(f"""
-<div class="heading">
-        <p style="margin-top: 10px; font-size: 17px; font-weight: bold; color: #333; text-align: center; font-family: Geneva, Verdana, helvetica, sans-serif">Infrastructure Monitoring System</p>
-</div>""", unsafe_allow_html=True)
+head1, head2, head3 = st.columns([1, 2, 1])
+with head2:
+    head2.markdown(f"""
+    <div class="heading">
+            <p style="margin-top: 10px; font-size: 17px; font-weight: bold; color: #333; text-align: center; font-family: Geneva, Verdana, helvetica, sans-serif">Infrastructure Monitoring System</p>
+    </div>""", unsafe_allow_html=True)
 
 
 st.sidebar.image('PNG/Red.png')
@@ -189,7 +225,7 @@ with tab1:
                 key="container_with_border",
                 css_styles="""{
                         border: 1px solid rgba(49, 51, 63, 0.2);
-                        box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
+                        boshadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
                         border-radius: 0.3rem;
                         padding-bottom: 5px;
                         margin-top: -10px
@@ -233,7 +269,7 @@ with tab1:
             mgtZone.selectbox('Management Zone', mgtZoneOptions, index=len(mgtZoneOptions)-1, key='mz', on_change=updateFilter, args=('mz', 'ManagementZone'))
             os.selectbox('OS', osOptions, index=len(osOptions)-1, key='oss', on_change=updateFilter, args=('oss', 'OS'))    
         
-            st.session_state['selectedServer'] = st.session_state['filteredData'].HostAndIP.iloc[0] 
+            st.session_state['selectedServer'] = st.session_state['filteredData'].HostAndIP.iloc[0] if not st.session_state['filteredData'].empty else "No servers available"
             st.session_state['metricData'] = st.session_state['filteredData'].query("HostAndIP == @st.session_state['selectedServer']")
         serverMetrics()
 
@@ -253,25 +289,25 @@ with tab1:
                 col1.markdown(f"""
                         <div class="container metrics text-center">
                                 <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >Op System</p>
-                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].query("HostAndIP == @st.session_state['selectedServer']")['OS'].iloc[0]}</p>
+                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].query("HostAndIP == @st.session_state['selectedServer']")['OS'].iloc[0] if not st.session_state['metricData'].empty else "No data available"}</p>
                         </div> """, unsafe_allow_html= True)
             with col2:
                 col2.markdown(f"""
                         <div class="container metrics text-center">
                                 <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >Hostname</p>
-                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].Hostname.iloc[0]}</p>
+                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].Hostname.iloc[0] if not st.session_state['metricData'].empty else "No data available"}</p>
                         </div> """, unsafe_allow_html= True)
             with col3:
                 col3.markdown(f"""
                         <div class="container metrics text-center">
                                 <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >IP Address</p>
-                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].IPAddress.iloc[0]}</p>
+                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].IPAddress.iloc[0] if not st.session_state['metricData'].empty else "No data available"}</p>
                         </div> """, unsafe_allow_html= True)
             with col4:
                 col4.markdown(f"""
                         <div class="container metrics text-center">
                                 <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >Total Server</p>
-                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{calc.totalServer}</p>
+                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{calc.totalServer if calc.totalServer is not None else "No data available"}</p>
                         </div> """, unsafe_allow_html= True)
             with col5:
                 col5.markdown(f"""
@@ -283,19 +319,19 @@ with tab1:
                 col6.markdown(f"""
                         <div class="container metrics text-center">
                                 <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >App Name</p>
-                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].ApplicationName.iloc[0]}</p>
+                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].ApplicationName.iloc[0] if not st.session_state['metricData'].empty else "No data available"}</p>
                         </div> """, unsafe_allow_html= True)
             with col7:
                 col7.markdown(f"""
                         <div class="container metrics text-center">
                                 <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >App Owner</p>
-                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].ApplicationOwner.iloc[0]}</p>
+                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].ApplicationOwner.iloc[0] if not st.session_state['metricData'].empty else "No data available"}</p>
                         </div> """, unsafe_allow_html= True)
             with col8:
                 col8.markdown(f"""
                         <div class="container metrics text-center">
                                 <p style="font-size: 18px; font-weight: bold; text-align: center; align-items: center;" >Vendor</p>
-                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].Vendor.iloc[0]}</p>
+                                <p style="margin-top: -15px; font-size: 14px; text-align: center; align-items: center; font-family: Tahoma, Verdana;">{st.session_state['metricData'].Vendor.iloc[0] if not st.session_state['metricData'].empty else "No data available" }</p>
                         </div> """, unsafe_allow_html= True)
 
             containerTwo.markdown('<br>', unsafe_allow_html=True)
@@ -306,23 +342,43 @@ with tab1:
             key="visual_container",
             css_styles="""{
                         # border: 1px solid rgba(49, 51, 63, 0.2);
-                        box-shadow: rgba(0, 0, 0, 0.15) 0px 5px 15px 0px;
+                        boshadow: rgba(0, 0, 0, 0.15) 0px 5px 15px 0px;
                         border-radius: 0.3rem;
                         padding: 5px 10px;
                         margin-top: -10px;
                     }"""):
+            # Preprocess the Metric data for visuals 
+            vizData = st.session_state['metricData'][['LogTimestamp', 'CPUUsage', 'MemoryUsage', 'DiskUsage', 'NetworkTrafficReceived', 'NetworkTrafficSent', 'NetworkTrafficAggregate']]
+            vizData['LogTimestamp'] = pd.to_datetime(vizData['LogTimestamp'])
+            # if not vizData.empty:
+            #     vizData = vizData.resample('1min', on = 'LogTimestamp').mean()
+            # else:
+            #     emptiness = True
+            #     shad.alert_dialog(show = emptiness, title="No Data Alert", description="There is currently no data between your selected date", confirm_label="Refresh", cancel_label="Cancel", key="alert_dialog_1")
+                # st.alert('Data is empty')
+
             col1, col2, col3, col4 = st.columns([2,5,1,2], border = True)
             with col1:
                 col1.selectbox('Server List', st.session_state['filteredData'].HostAndIP.unique().tolist(), key='serverList', on_change=updateServerMetrics, help='Select a server to view its metrics', index = 0) 
                 st.session_state['metricData']['LogTimestamp'] = pd.to_datetime(st.session_state['metricData']['LogTimestamp'])
             with col2:
-                netType = col2.selectbox('Network Bound', ['Received and Sent', 'Aggregate'], index = 0)
+                netType = col2.selectbox('Network Bound', ['Received and Sent', 'Aggregate'], index = 0, label_visibility = 'collapsed')
                 if netType == 'Received and Sent':
-                    fig = px.area(data_frame=st.session_state['metricData'],  x='LogTimestamp', y=['NetworkTrafficReceived', 'NetworkTrafficSent'], height = 280)
-                    col2.plotly_chart(fig)
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(
+                        x=vizData.index, y=vizData['NetworkTrafficReceived'], fill='tozeroy', mode='lines', line=dict(color='green'), name='Traffic Received'))
+                    fig.add_trace(go.Scatter(x=vizData.index, y=vizData['NetworkTrafficSent'], fill='tonexty', mode='lines', line=dict(color='#FFEB00'),name='Traffic Sent'  ))
+                    fig.update_layout(
+                        xaxis_title='Time', yaxis_title='InBound and OutBound Network Reception', height=300, margin=dict(l=0, r=0, t=40, b=10))
+                    st.plotly_chart(fig, use_container_width=True)
+
                 elif netType == 'Aggregate':
-                    fig = px.line(data_frame=st.session_state['metricData'],  x='LogTimestamp', y='NetworkTrafficAggregate', height = 280)
-                    col2.plotly_chart(fig)
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=vizData.index, y=vizData['NetworkTrafficAggregate'], fill='tozeroy', mode='lines', line=dict(color='green') ))
+                    fig.update_layout(
+                        # title=f"CPU Usage In Last {output}",
+                        xaxis_title='Time', yaxis_title='Aggregate Network Reception', height=300, margin=dict(l=0,  r=0, t=40, b=10  ))     
+                    st.plotly_chart(fig, use_container_width=True)
             with col3:
                 calc2 = inf(st.session_state['metricData'])
                 col3.metric(label = 'Disk Space(GB)', value = round(calc2.currentTotalDisk,1), delta = None, border=True)
@@ -340,13 +396,13 @@ with tab1:
                         'axis': {'range': [1, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
                         'bar': {'color': '#16C47F' if calc2.currentCPU <= 75 else '#FFF574' if calc2.currentCPU <= 85 else '#F93827'},
                         # 'bgcolor': "white",
-                        'borderwidth': 1,
-                        'bordercolor': "white",
+                        'borderwidth': 1, 'bordercolor': "white",
                         'steps': [
-                            {'range': [0, 80], 'color': '#F0F2F6'},
-                            {'range': [80, 100], 'color': '#FFEDED'}],
+                            {'range': [0, 70], 'color': '#F0F2F6'},
+                            {'range': [70, 85], 'color': '#E7D283'},
+                            {'range': [85, 100], 'color': '#FFDBDB'}],
                         'threshold': {
-                            'line': {'color': "red", 'width': 4},
+                            'line': {'color': "red", 'width': 1},
                             'thickness': 0.75,
                             'value': 80}}))
                 fig1.update_layout(
@@ -366,15 +422,16 @@ with tab1:
                     # delta = {'reference': 400, 'increasing': {'color': "RebeccaPurple"}},
                     gauge = {
                         'axis': {'range': [1, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
-                        'bar': {'color': '#16C47F' if calc2.currentMemory <= 75 else '#FFF574' if calc2.currentMemory <= 85 else '#F93827'},
+                        'bar': {'color': '#16C47F' if calc2.currentMemory <= 70 else '#FFF574' if calc2.currentMemory <= 85 else '#F93827'},
                         'bgcolor': "gray",
                         'borderwidth': 1,
                         'bordercolor': "white",
                         'steps': [
-                            {'range': [0, 80], 'color': '#F0F2F6'},
-                            {'range': [80, 100], 'color': '#FFEDED'}],
+                            {'range': [0, 70], 'color': '#F0F2F6'},
+                            {'range': [70, 85], 'color': '#E7D283'},
+                            {'range': [85, 100], 'color': '#FFDBDB'}],
                         'threshold': {
-                            'line': {'color': "red", 'width': 4},
+                            'line': {'color': "red", 'width': 1},
                             'thickness': 0.75,
                             'value': 80}}))
                 fig2.update_layout(
@@ -399,14 +456,16 @@ with tab1:
                         'borderwidth': 1,
                         'bordercolor': "white",
                         'steps': [
-                            {'range': [0, 80], 'color': '#F0F2F6'},
-                            {'range': [80, 100], 'color': '#FFEDED'}],
+                            {'range': [0, 70], 'color': '#F0F2F6'},
+                            {'range': [70, 85], 'color': '#E7D283'},
+                            {'range': [85, 100], 'color': '#FFDBDB'}],
                         'threshold': {
-                            'line': {'color': "red", 'width': 4},
+                            'line': {'color': "red", 'width': 1},
                             'thickness': 0.75,
                             'value': 80}}))
                 fig3.update_layout(
                     height=115,
+                    width = 500,
                     # paper_bgcolor='lightgray',  
                     paper_bgcolor='rgba(0,0,0,0)',  # Transparent background
                     # plot_bgcolor='cyan',
@@ -414,14 +473,156 @@ with tab1:
                     title={'text': "Current Disk Load(%)", 'font': {'size': 12}, 'x': 0.3},) # Remove extra space around the gauge
                 col4.plotly_chart(fig3, use_container_width=True)
 
+        # -------------------------------------------- 2nd row -----------------------------------------------
+        with stylable_container(
+            key="visual_container2",
+            css_styles="""{
+                        # border: 1px solid rgba(49, 51, 63, 0.2);
+                        boshadow: rgba(0, 0, 0, 0.15) 0px 5px 15px 0px;
+                        border-radius: 0.3rem;
+                        padding: 5px 10px;
+                        margin-top: -10px;
+                    }"""):
+            if len(st.session_state['startDate']) == 10 or len(st.session_state['stopDate']) == 10:
+                date1 = datetime.strptime(st.session_state['startDate']+' 00:00:00', "%Y-%m-%d %H:%M:%S")
+                date2 = datetime.strptime(st.session_state['stopDate']+' 00:00:00', "%Y-%m-%d %H:%M:%S")
+            else:
+                date1 = datetime.strptime(st.session_state['startDate'], "%Y-%m-%d %H:%M:%S")
+                date2 = datetime.strptime(st.session_state['stopDate'], "%Y-%m-%d %H:%M:%S")
+            difference = date2 - date1
+            days = difference.days
+            hours = difference.seconds//3600
+            if days > 0 and hours > 0:
+                output = f"{days} days and {hours} hours"
+            elif days > 0 and hours == 0:
+                output = f"{days} days"
+            else:
+                output = f"{hours} hours"
+
+            col1, col2, col3 = st.columns([1,1,1], border = True)
+            with col1:
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=vizData.index, y=vizData['CPUUsage'], fill='tozeroy', mode='lines', line=dict(color='green') ))
+                fig.update_layout(
+                    title=f"CPU Usage In Last {output}",
+                    xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=0, t=40, b=10  ))     
+                st.plotly_chart(fig, use_container_width=True)
+            with col2:
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=vizData.index, y=vizData['MemoryUsage'], fill='tozeroy', mode='lines', line=dict(color='blue') ))
+                fig.update_layout(
+                    title=f"Memory Usage In Last {output}",
+                    xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=0, t=40, b=10  ))     
+                st.plotly_chart(fig, use_container_width=True)             
+            with col3:
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=vizData.index, y=vizData['DiskUsage'], fill='tozeroy', mode='lines', line=dict(color='#FFEB00') ))
+                fig.update_layout(
+                    title=f"Disk Usage In Last {output}",
+                    xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=0, t=40, b=10  ))     
+                st.plotly_chart(fig, use_container_width=True)  
+
+        # -------------------------------------------- 3rd row -----------------------------------------------
+        def displayTable():
+            usageData = st.session_state['data'].copy()
+            usageData['LogTimestamp'] = pd.to_datetime(usageData['LogTimestamp'])
+            latestLog = usageData['LogTimestamp'].max()
+            filtered_data = usageData[usageData['LogTimestamp'] >= latestLog]
+
+            # Create a new DataFrame where each row corresponds to a drive on a server
+            quickMetricTable = filtered_data[['HostAndIP', 'DriveLetter', 'ManagementZone', 
+                                            'ApplicationName', 'ApplicationOwner', 'TotalDiskSpaceGB', 
+                                            'TotalFreeDiskGB', 'DiskUsage', 'CPUUsage', 'MemoryUsage', 
+                                            'Datacenter']].copy()
+
+            # Remove duplicates to ensure a unique row for each server-drive combination
+            quickMetricTable = quickMetricTable.drop_duplicates(subset=['HostAndIP', 'DriveLetter'])
+            quickMetricTable.rename(columns={
+                'HostAndIP': 'Hostname and IP',
+                'TotalDiskSpaceGB': 'DiskSpace (GB)',
+                'TotalFreeDiskGB': 'DiskAvailable (GB)',
+                'DiskUsage': 'DiskUsed (%)',
+                'CPUUsage': 'CPU Usage (%)',
+                'MemoryUsage': 'Memory Usage (%)',
+                'Datacenter': 'Data Center'
+            }, inplace=True)
+
+            quickMetricTable['Last Seen'] = quickMetricTable['Hostname and IP'].map(
+                lambda server: usageData[usageData['HostAndIP'] == server]['LogTimestamp'].max())
+            quickMetricTable['Last Seen (Days Ago)'] = quickMetricTable['Hostname and IP'].map(
+                lambda server: (datetime.now() - usageData[usageData['HostAndIP'] == server]['LogTimestamp'].max()).total_seconds() // 86400)
+            quickMetricTable['Last Seen (Hours Ago)'] = quickMetricTable['Hostname and IP'].map(
+                lambda server: (datetime.now() - usageData[usageData['HostAndIP'] == server]['LogTimestamp'].max()).total_seconds() // 3600)
+            
+            quickMetricTable.reset_index(drop=True, inplace=True)
+            st.session_state['quickMetricTable'] = quickMetricTable   
+            return st.dataframe(st.session_state['quickMetricTable']) 
+
+        def pivotTable24hrs(value):
+            usageData = st.session_state['data'].copy()
+            usageData['LogTimestamp'] = pd.to_datetime(usageData['LogTimestamp'])
+            startTime = str(usageData.LogTimestamp.max() - timedelta(hours=24))
+            
+            usageData['LogTimestamp'] = pd.to_datetime(usageData['LogTimestamp'])
+            usageData.set_index('LogTimestamp', inplace = True)
+            usageData = usageData[['HostAndIP', 'CPUUsage', 'DiskUsage', 'MemoryUsage', 'NetworkTrafficReceived', 'NetworkTrafficSent', 'NetworkTrafficAggregate']]
+
+            usageData = usageData.groupby('HostAndIP').resample('h').agg({'CPUUsage': 'mean', 'DiskUsage': 'mean', 'MemoryUsage': 'mean', 'NetworkTrafficReceived': 'sum', 'NetworkTrafficSent': 'sum', 'NetworkTrafficAggregate': 'sum'})
+            usageData.reset_index(inplace = True)
+            usageData['hour'] = usageData['LogTimestamp'].dt.strftime('%H:00')
+            # usageData =  pd.pivot_table(usageData, index = 'HostAndIP', columns = 'hour', values = 'CPUUsage').fillna(0).applymap(lambda x: f"{x:.2f}".rstrip('0').rstrip('.'))
+            if st.session_state['data_empty'] == False:
+                usageData =  pd.pivot_table(usageData, index = 'HostAndIP', columns = 'hour', values = value).fillna(0).applymap(lambda x: round(x, 2))
+            else:
+                return None
+
+            # return   usageData.style.background_gradient(cmap='Reds', axis=0).set_table_styles([
+            #     {'selector': 'th', 'props': [('background-color', 'black'), ('color', 'white')]},  # Header styles
+            #     {'selector': 'td', 'props': [('min-width', '100px')]},  # Column width
+            # ])
+            return st.write(usageData.style.background_gradient(cmap='Reds', axis=0))
+
+
+        with stylable_container(
+            key="visual_container2",
+            css_styles="""{
+                        # border: 1px solid rgba(49, 51, 63, 0.2);
+                        boshadow: rgba(0, 0, 0, 0.15) 0px 5px 15px 0px;
+                        border-radius: 0.3rem;
+                        padding: 5px 10px;
+                        margin-top: -10px;
+                    }"""):
+            col1, col2 = st.columns([5,1], border = True)
+            with col1:
+                col11, col22 = col1.columns([1, 5])
+                with col11:
+                    options = ['CPUUsage', 'DiskUsage', 'MemoryUsage', 'NetworkTrafficReceived', 'NetworkTrafficSent', 'NetworkTrafficAggregate']
+                    col11.selectbox('Choose the metric to be displayed', options, key='metricTableValue',  help='View the information of your chosen metric in the last 24hrs', index = 0)
+                with col22:
+                    col22.markdown(f"""
+                        <div class="container metrics text-center" style="margin-top: 1px; height:68px;">
+                            <p style="font-size: 18px; font-weight: bold; text-align: center;">24Hrs Metric Display Table</p>
+                            <p style="margin-top: -15px; font-size: 16px; text-align: center; font-family: Tahoma, Verdana;">
+                                Overview of {st.session_state.metricTableValue} Across All Servers in the Last 24 Hours of Your Selected Timeframe
+                            </p>
+                        </div>
+                        </div> """, unsafe_allow_html= True)
+                pivotTable24hrs(st.session_state.metricTableValue)
+
+        
+            with col2:
+                option1 = col2.selectbox('Choose the metric to be displayed', ['CPUUsage', 'DiskUsage', 'MemoryUsage'], key='heatmap',  help='Select the heatmap value', index = 0)    
+                fig = px.treemap(data_frame = st.session_state.data, path = ['HostAndIP'], values = calc.currentCPU if option1 == 'CPUUsage' else calc.currentDisk if option1 == 'DiskUsage' else calc.currentMemory)
+                col2.plotly_chart(fig, use_container_width=True)
+              
+
+
         st.session_state['usageMonitor'] += 1
 
     filters()    
     st.session_state['usageMonitor'] += 1
 
-
-
-
+    st.markdown("<br>", unsafe_allow_html=True)
 
 
 
@@ -439,7 +640,7 @@ st.sidebar.markdown(f"Data Connection and Refresh loaded in {dataloading_time:.2
 #             with stylable_container( key = 'containerTwo',
 #                 css_styles="""{
 #                     border: 1px solid rgba(49, 51, 63, 0.2);
-#                     box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
+#                     boshadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
 #                     border-radius: 0.3rem;
 #                     padding: calc(1em - 1px);
 #                     margin-top: -10px
@@ -510,7 +711,7 @@ st.sidebar.markdown(f"Data Connection and Refresh loaded in {dataloading_time:.2
 #                 padding: 10px 20px;
 #                 background-color: #f8f9fa;
 #                 border-bottom: 1px solid #e0e0e0;
-#                 box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+#                 boshadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 #             }
 #         </style>
 #     """, unsafe_allow_html=True)
@@ -539,7 +740,7 @@ st.sidebar.markdown(f"Data Connection and Refresh loaded in {dataloading_time:.2
 #     padding: 10px 20px;
 #     background-color: #f8f9fa;
 #     border-bottom: 1px solid #e0e0e0;
-#     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+#     boshadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 # ">
 #     <!-- Logo and Dashboard Name -->
 #     <div style="display: flex; align-items: center; gap: 10px;">

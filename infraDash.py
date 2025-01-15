@@ -333,14 +333,15 @@ with tab1:
 
         # VISUALS 
         with stylable_container(
-            key="visual_container",
-            css_styles="""{
-                        # border: 1px solid rgba(49, 51, 63, 0.2);
-                        box-shadow: rgba(14, 30, 37, 0.12) 0px 2px 4px 0px, rgba(14, 30, 37, 0.32) 0px 2px 16px 0px;
-                        border-radius: 0.3rem;
-                        padding: 5px 10px;
-                        margin-top: -10px;
-                    }"""):
+                    key="visual_container20",
+                    css_styles="""{
+                                # border: 1px solid rgba(49, 51, 63, 0.2);
+                                # box-shadow: rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px;
+                                box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+                                # border-radius: 0.3rem;
+                                padding: 20px 20px 20px 20px;
+                                margin-top: -10px;
+                            }"""):
             # Preprocess the Metric data for visuals 
             vizData = st.session_state['metricData'][['LogTimestamp', 'CPUUsage', 'MemoryUsage', 'DiskUsage', 'NetworkTrafficReceived', 'NetworkTrafficSent', 'NetworkTrafficAggregate']]
             vizData['LogTimestamp'] = pd.to_datetime(vizData['LogTimestamp'])
@@ -477,72 +478,72 @@ with tab1:
         #                 padding: 5px 10px;
         #                 margin-top: -10px;
         #             }"""):
-            if len(st.session_state['startDate']) == 10 or len(st.session_state['stopDate']) == 10:
-                date1 = datetime.strptime(st.session_state['startDate']+' 00:00:00', "%Y-%m-%d %H:%M:%S")
-                date2 = datetime.strptime(st.session_state['stopDate']+' 00:00:00', "%Y-%m-%d %H:%M:%S")
-            else:
-                date1 = datetime.strptime(st.session_state['startDate'], "%Y-%m-%d %H:%M:%S")
-                date2 = datetime.strptime(st.session_state['stopDate'], "%Y-%m-%d %H:%M:%S")
-            difference = date2 - date1
-            days = difference.days
-            hours = difference.seconds//3600
-            if days > 0 and hours > 0:
-                output = f"{days} days and {hours} hours"
-            elif days > 0 and hours == 0:
-                output = f"{days} days"
-            else:
-                output = f"{hours} hours"
+        if len(st.session_state['startDate']) == 10 or len(st.session_state['stopDate']) == 10:
+            date1 = datetime.strptime(st.session_state['startDate']+' 00:00:00', "%Y-%m-%d %H:%M:%S")
+            date2 = datetime.strptime(st.session_state['stopDate']+' 00:00:00', "%Y-%m-%d %H:%M:%S")
+        else:
+            date1 = datetime.strptime(st.session_state['startDate'], "%Y-%m-%d %H:%M:%S")
+            date2 = datetime.strptime(st.session_state['stopDate'], "%Y-%m-%d %H:%M:%S")
+        difference = date2 - date1
+        days = difference.days
+        hours = difference.seconds//3600
+        if days > 0 and hours > 0:
+            output = f"{days} days and {hours} hours"
+        elif days > 0 and hours == 0:
+            output = f"{days} days"
+        else:
+            output = f"{hours} hours"
 
         col1, col2, col3 = st.columns([1,1,1], border = False)
         with col1:
-                with stylable_container(
-                    key="visual_container2",
+            with stylable_container(
+                    key="visual_container21",
                     css_styles="""{
                                 # border: 1px solid rgba(49, 51, 63, 0.2);
-                                box-shadow: rgba(14, 30, 37, 0.12) 0px 2px 4px 0px, rgba(14, 30, 37, 0.32) 0px 2px 16px 0px;
-                                border-radius: 0.3rem;
+                                box-shadow: rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px;
+                                # border-radius: 0.3rem;
                                 padding: 5px 10px;
-                                margin-top: -10px;
+                                margin-top: 10px;
                             }"""):
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(x=vizData.index, y=vizData['CPUUsage'], fill='tozeroy', mode='lines', line=dict(color='green') ))
                     fig.update_layout(
                         title=f"CPU Usage In Last {output}",
-                        xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=10,  r=10, t=40, b=10  ))     
+                        xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=30, t=40, b=10  ))     
                     st.plotly_chart(fig, use_container_width=True)
 
         with col2:
-                with stylable_container(
-                    key="visual_container2",
+            with stylable_container(
+                    key="visual_container21",
                     css_styles="""{
                                 # border: 1px solid rgba(49, 51, 63, 0.2);
-                                box-shadow: rgba(14, 30, 37, 0.12) 0px 2px 4px 0px, rgba(14, 30, 37, 0.32) 0px 2px 16px 0px;
-                                border-radius: 0.3rem;
+                                box-shadow: rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px;
+                                # border-radius: 0.3rem;
                                 padding: 5px 10px;
-                                margin-top: -10px;
+                                margin-top: 10px;
                             }"""):
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(x=vizData.index, y=vizData['MemoryUsage'], fill='tozeroy', mode='lines', line=dict(color='blue') ))
                     fig.update_layout(
                         title=f"Memory Usage In Last {output}",
-                        xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=0, t=40, b=10  ))     
+                        xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=30, t=40, b=10  ))     
                     st.plotly_chart(fig, use_container_width=True)  
 
         with col3:
-                with stylable_container(
-                    key="visual_container2",
+            with stylable_container(
+                    key="visual_container21",
                     css_styles="""{
                                 # border: 1px solid rgba(49, 51, 63, 0.2);
-                                box-shadow: rgba(14, 30, 37, 0.12) 0px 2px 4px 0px, rgba(14, 30, 37, 0.32) 0px 2px 16px 0px;
-                                border-radius: 0.3rem;
+                                box-shadow: rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px;
+                                # border-radius: 0.3rem;
                                 padding: 5px 10px;
-                                margin-top: -10px;
+                                margin-top: 10px;
                             }"""):
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(x=vizData.index, y=vizData['DiskUsage'], fill='tozeroy', mode='lines', line=dict(color='#FFEB00') ))
                     fig.update_layout(
                         title=f"Disk Usage In Last {output}",
-                        xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=0, t=40, b=10  ))     
+                        xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=30, t=40, b=10  ))     
                     st.plotly_chart(fig, use_container_width=True)  
 
     filters()
@@ -607,14 +608,15 @@ with tab1:
     @st.fragment
     def miniHeatMap():
         with stylable_container(
-            key="visual_container2",
-            css_styles="""{
-                        
-                        box-shadow: rgba(0, 0, 0, 0.2) 0px 12px 28px 0px, rgba(0, 0, 0, 0.1) 0px 2px 4px 0px, rgba(255, 255, 255, 0.05) 0px 0px 0px 1px inset;
-                        border-radius: 0.3rem;
-                        padding: 5px 10px;
-                        margin-top: 10px;
-                    }"""):
+                    key="visual_container30",
+                    css_styles="""{
+                                # border: 1px solid rgba(49, 51, 63, 0.2);
+                                # box-shadow: rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px;
+                                box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+                                # border-radius: 0.3rem;
+                                padding: 20px 20px 20px 20px;
+                                margin-top: 10px;
+                            }"""):
             col1, col2 = st.columns([5,1.8], border = True)
             with col1:
                 col11, col22 = col1.columns([1, 5])
@@ -634,7 +636,7 @@ with tab1:
   
             heatmapData1 = data[data['LogTimestamp'] >= calc.latestLog][['HostAndIP', 'DriveLetter', 'CPUUsage', 'DiskUsage', 'MemoryUsage']]
             with col2:
-                option1 = col2.selectbox('Metric Selector', ['CPUUsage', 'DiskUsage', 'MemoryUsage'], key='heatmap',  help='Select the heatmap value', index = 0) 
+                option1 = col2.selectbox('Metric Selector', ['CPUUsage', 'DiskUsage', 'MemoryUsage'], key='heatmap',  help="Displays a heatmap of servers' resource consumption. Use the dropdown to select resource of interest", index = 0) 
                 if option1 == 'CPUUsage':
                     heatmapData1 = heatmapData1.groupby(['HostAndIP'])[['CPUUsage']].mean().reset_index()
                     figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['CPUUsage'], color=heatmapData1['CPUUsage'], color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'CPUUsage': ':.2f',  'HostAndIP': True,   }, height = 400 )
@@ -661,14 +663,15 @@ with tab1:
     def heatMap():    
         dataWtihLastValues = (data.sort_values(by='LogTimestamp').groupby('HostAndIP', as_index=False).last())        
         with stylable_container(
-                    key="visual_container2",
+                    key="visual_container40",
                     css_styles="""{
                                 # border: 1px solid rgba(49, 51, 63, 0.2);
-                                box-shadow: rgba(14, 30, 37, 0.12) 0px 2px 4px 0px, rgba(14, 30, 37, 0.32) 0px 2px 16px 0px;
-                                border-radius: 0.3rem;
-                                padding: 5px 10px;
+                                # box-shadow: rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px;
+                                box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+                                # border-radius: 0.3rem;
+                                padding: 20px 20px 20px 20px;
                                 margin-top: 10px;
-                            }"""):      
+                            }"""):    
 
             with st.container(border = True):
                 col21, col22 = st.columns([1, 5], border =False)

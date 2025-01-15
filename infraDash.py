@@ -31,9 +31,6 @@ def importLibraries():
 
 go, daq, px, sqlite3, pathlib, html, antd, pd, np, json, warnings, inf, shad = importLibraries()
 
-# set configuration 
-
-
 # Config Variables 
 @st.cache_resource()
 def getConfig():
@@ -54,7 +51,7 @@ def css_cdn():
 # css_cdn()
 
 #Load css file
-# @st.cache_resource()
+@st.cache_resource()
 def load_css(filePath:str):
     with open(filePath) as f:
         st.html(f'<style>{f.read()}</style>')
@@ -79,7 +76,6 @@ if 'latestLog' not in st.session_state:
 
 
 start_time = time.time()
-
 
 @st.cache_data
 def liveDataHandler(db_path, table_name, start_date, stop_date, autoChanger):
@@ -185,8 +181,6 @@ with head2:
 
 st.sidebar.image('PNG/Red.png')
 # antd.divider(label='HOME', icon='house', align='center', color='gray')
-st.sidebar.success(st.session_state['startDate'])
-st.sidebar.success(st.session_state['stopDate'])
 
 tab1, tab2 = st.tabs(["📈 Infrastructure Metrics", "🗃 Server Metrics"])
 with tab1:
@@ -222,10 +216,10 @@ with tab1:
     def filters():
         #  -------------------------------------------------- Filters Container --------------------------------------------------
         with stylable_container(
-                key="container_with_border",
+                key="container_with_borders",
                 css_styles="""{
-                        border: 1px solid rgba(49, 51, 63, 0.2);
-                        boshadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
+                       
+                        box-shadow: rgba(0, 0, 0, 0.15) 0px 5px 15px 0px;
                         border-radius: 0.3rem;
                         padding-bottom: 5px;
                         margin-top: -10px
@@ -342,7 +336,7 @@ with tab1:
             key="visual_container",
             css_styles="""{
                         # border: 1px solid rgba(49, 51, 63, 0.2);
-                        boshadow: rgba(0, 0, 0, 0.15) 0px 5px 15px 0px;
+                        box-shadow: rgba(14, 30, 37, 0.12) 0px 2px 4px 0px, rgba(14, 30, 37, 0.32) 0px 2px 16px 0px;
                         border-radius: 0.3rem;
                         padding: 5px 10px;
                         margin-top: -10px;
@@ -474,15 +468,15 @@ with tab1:
                 col4.plotly_chart(fig3, use_container_width=True)
 
         # -------------------------------------------- 2nd row -----------------------------------------------
-        with stylable_container(
-            key="visual_container2",
-            css_styles="""{
-                        # border: 1px solid rgba(49, 51, 63, 0.2);
-                        boshadow: rgba(0, 0, 0, 0.15) 0px 5px 15px 0px;
-                        border-radius: 0.3rem;
-                        padding: 5px 10px;
-                        margin-top: -10px;
-                    }"""):
+        # with stylable_container(
+        #     key="visual_container2",
+        #     css_styles="""{
+        #                 # border: 1px solid rgba(49, 51, 63, 0.2);
+        #                 box-shadow: rgba(14, 30, 37, 0.12) 0px 2px 4px 0px, rgba(14, 30, 37, 0.32) 0px 2px 16px 0px;
+        #                 border-radius: 0.3rem;
+        #                 padding: 5px 10px;
+        #                 margin-top: -10px;
+        #             }"""):
             if len(st.session_state['startDate']) == 10 or len(st.session_state['stopDate']) == 10:
                 date1 = datetime.strptime(st.session_state['startDate']+' 00:00:00', "%Y-%m-%d %H:%M:%S")
                 date2 = datetime.strptime(st.session_state['stopDate']+' 00:00:00', "%Y-%m-%d %H:%M:%S")
@@ -499,31 +493,63 @@ with tab1:
             else:
                 output = f"{hours} hours"
 
-            col1, col2, col3 = st.columns([1,1,1], border = True)
-            with col1:
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=vizData.index, y=vizData['CPUUsage'], fill='tozeroy', mode='lines', line=dict(color='green') ))
-                fig.update_layout(
-                    title=f"CPU Usage In Last {output}",
-                    xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=0, t=40, b=10  ))     
-                st.plotly_chart(fig, use_container_width=True)
-            with col2:
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=vizData.index, y=vizData['MemoryUsage'], fill='tozeroy', mode='lines', line=dict(color='blue') ))
-                fig.update_layout(
-                    title=f"Memory Usage In Last {output}",
-                    xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=0, t=40, b=10  ))     
-                st.plotly_chart(fig, use_container_width=True)             
-            with col3:
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=vizData.index, y=vizData['DiskUsage'], fill='tozeroy', mode='lines', line=dict(color='#FFEB00') ))
-                fig.update_layout(
-                    title=f"Disk Usage In Last {output}",
-                    xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=0, t=40, b=10  ))     
-                st.plotly_chart(fig, use_container_width=True)  
+        col1, col2, col3 = st.columns([1,1,1], border = False)
+        with col1:
+                with stylable_container(
+                    key="visual_container2",
+                    css_styles="""{
+                                # border: 1px solid rgba(49, 51, 63, 0.2);
+                                box-shadow: rgba(14, 30, 37, 0.12) 0px 2px 4px 0px, rgba(14, 30, 37, 0.32) 0px 2px 16px 0px;
+                                border-radius: 0.3rem;
+                                padding: 5px 10px;
+                                margin-top: -10px;
+                            }"""):
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=vizData.index, y=vizData['CPUUsage'], fill='tozeroy', mode='lines', line=dict(color='green') ))
+                    fig.update_layout(
+                        title=f"CPU Usage In Last {output}",
+                        xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=10,  r=10, t=40, b=10  ))     
+                    st.plotly_chart(fig, use_container_width=True)
+
+        with col2:
+                with stylable_container(
+                    key="visual_container2",
+                    css_styles="""{
+                                # border: 1px solid rgba(49, 51, 63, 0.2);
+                                box-shadow: rgba(14, 30, 37, 0.12) 0px 2px 4px 0px, rgba(14, 30, 37, 0.32) 0px 2px 16px 0px;
+                                border-radius: 0.3rem;
+                                padding: 5px 10px;
+                                margin-top: -10px;
+                            }"""):
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=vizData.index, y=vizData['MemoryUsage'], fill='tozeroy', mode='lines', line=dict(color='blue') ))
+                    fig.update_layout(
+                        title=f"Memory Usage In Last {output}",
+                        xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=0, t=40, b=10  ))     
+                    st.plotly_chart(fig, use_container_width=True)  
+
+        with col3:
+                with stylable_container(
+                    key="visual_container2",
+                    css_styles="""{
+                                # border: 1px solid rgba(49, 51, 63, 0.2);
+                                box-shadow: rgba(14, 30, 37, 0.12) 0px 2px 4px 0px, rgba(14, 30, 37, 0.32) 0px 2px 16px 0px;
+                                border-radius: 0.3rem;
+                                padding: 5px 10px;
+                                margin-top: -10px;
+                            }"""):
+                    fig = go.Figure()
+                    fig.add_trace(go.Scatter(x=vizData.index, y=vizData['DiskUsage'], fill='tozeroy', mode='lines', line=dict(color='#FFEB00') ))
+                    fig.update_layout(
+                        title=f"Disk Usage In Last {output}",
+                        xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=0, t=40, b=10  ))     
+                    st.plotly_chart(fig, use_container_width=True)  
+
+    filters()
 
         # -------------------------------------------- 3rd row -----------------------------------------------
-        def displayTable():
+    @st.fragment
+    def displayTable():
             usageData = st.session_state['data'].copy()
             usageData['LogTimestamp'] = pd.to_datetime(usageData['LogTimestamp'])
             latestLog = usageData['LogTimestamp'].max()
@@ -556,9 +582,10 @@ with tab1:
             
             quickMetricTable.reset_index(drop=True, inplace=True)
             st.session_state['quickMetricTable'] = quickMetricTable   
-            return st.dataframe(st.session_state['quickMetricTable']) 
+            return st.dataframe(st.session_state['quickMetricTable'], use_container_width=True) 
 
-        def pivotTable24hrs(value):
+    @st.fragment
+    def pivotTable24hrs(value):
             usageData = st.session_state['data'].copy()
             usageData['LogTimestamp'] = pd.to_datetime(usageData['LogTimestamp'])
             startTime = str(usageData.LogTimestamp.max() - timedelta(hours=24))
@@ -575,29 +602,25 @@ with tab1:
                 usageData =  pd.pivot_table(usageData, index = 'HostAndIP', columns = 'hour', values = value).fillna(0).applymap(lambda x: round(x, 2))
             else:
                 return None
-
-            # return   usageData.style.background_gradient(cmap='Reds', axis=0).set_table_styles([
-            #     {'selector': 'th', 'props': [('background-color', 'black'), ('color', 'white')]},  # Header styles
-            #     {'selector': 'td', 'props': [('min-width', '100px')]},  # Column width
-            # ])
             return st.write(usageData.style.background_gradient(cmap='Reds', axis=0))
 
-
+    @st.fragment
+    def miniHeatMap():
         with stylable_container(
             key="visual_container2",
             css_styles="""{
-                        # border: 1px solid rgba(49, 51, 63, 0.2);
-                        boshadow: rgba(0, 0, 0, 0.15) 0px 5px 15px 0px;
+                        
+                        box-shadow: rgba(0, 0, 0, 0.2) 0px 12px 28px 0px, rgba(0, 0, 0, 0.1) 0px 2px 4px 0px, rgba(255, 255, 255, 0.05) 0px 0px 0px 1px inset;
                         border-radius: 0.3rem;
                         padding: 5px 10px;
-                        margin-top: -10px;
+                        margin-top: 10px;
                     }"""):
-            col1, col2 = st.columns([5,1], border = True)
+            col1, col2 = st.columns([5,1.8], border = True)
             with col1:
                 col11, col22 = col1.columns([1, 5])
                 with col11:
                     options = ['CPUUsage', 'DiskUsage', 'MemoryUsage', 'NetworkTrafficReceived', 'NetworkTrafficSent', 'NetworkTrafficAggregate']
-                    col11.selectbox('Choose the metric to be displayed', options, key='metricTableValue',  help='View the information of your chosen metric in the last 24hrs', index = 0)
+                    col11.selectbox('Metric Selector', options, key='metricTableValue',  help='View the information of your chosen metric in the last 24hrs', index = 0)
                 with col22:
                     col22.markdown(f"""
                         <div class="container metrics text-center" style="margin-top: 1px; height:68px;">
@@ -608,18 +631,129 @@ with tab1:
                         </div>
                         </div> """, unsafe_allow_html= True)
                 pivotTable24hrs(st.session_state.metricTableValue)
-
-        
+  
+            heatmapData1 = data[data['LogTimestamp'] >= calc.latestLog][['HostAndIP', 'DriveLetter', 'CPUUsage', 'DiskUsage', 'MemoryUsage']]
             with col2:
-                option1 = col2.selectbox('Choose the metric to be displayed', ['CPUUsage', 'DiskUsage', 'MemoryUsage'], key='heatmap',  help='Select the heatmap value', index = 0)    
-                fig = px.treemap(data_frame = st.session_state.data, path = ['HostAndIP'], values = calc.currentCPU if option1 == 'CPUUsage' else calc.currentDisk if option1 == 'DiskUsage' else calc.currentMemory)
-                col2.plotly_chart(fig, use_container_width=True)
-              
+                option1 = col2.selectbox('Metric Selector', ['CPUUsage', 'DiskUsage', 'MemoryUsage'], key='heatmap',  help='Select the heatmap value', index = 0) 
+                if option1 == 'CPUUsage':
+                    heatmapData1 = heatmapData1.groupby(['HostAndIP'])[['CPUUsage']].mean().reset_index()
+                    figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['CPUUsage'], color=heatmapData1['CPUUsage'], color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'CPUUsage': ':.2f',  'HostAndIP': True,   }, height = 400 )
+                elif option1 == 'DiskUsage':
+                    heatmapData1 = heatmapData1.groupby(['HostAndIP'])[['DiskUsage']].mean().reset_index()
+                    figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['DiskUsage'], color=heatmapData1['DiskUsage'], color_continuous_scale=[ (0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100) , hover_data={ 'DiskUsage': ':.2f',  'HostAndIP': True }, height = 400)
+                elif option1 == 'MemoryUsage':
+                    heatmapData1 = heatmapData1.groupby(['HostAndIP'])[['MemoryUsage']].mean().reset_index()
+                    figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['MemoryUsage'], color=heatmapData1['MemoryUsage'], color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100) , hover_data={ 'MemoryUsage': ':.2f',  'HostAndIP': True}, height = 400)
+                figs.update_traces(
+                    hovertemplate="<b>Host and IP:</b> %{customdata[1]}<br>"
+                  "<b>Value:</b> %{color:.2f}%<extra></extra>")
+                figs.update_layout(
+                    margin=dict(l=0, r=0, t=0, b=0),  # Remove margins
+                    uniformtext=dict(minsize=10, mode='hide'),  # Manage text size and visibility
+                )
+                col2.plotly_chart(figs, use_container_width=True)
+    miniHeatMap()
 
 
-        st.session_state['usageMonitor'] += 1
+        # -------------------------------------------- 4th row -----------------------------------------------
 
-    filters()    
+    @st.fragment
+    def heatMap():    
+        dataWtihLastValues = (data.sort_values(by='LogTimestamp').groupby('HostAndIP', as_index=False).last())        
+        with stylable_container(
+                    key="visual_container2",
+                    css_styles="""{
+                                # border: 1px solid rgba(49, 51, 63, 0.2);
+                                box-shadow: rgba(14, 30, 37, 0.12) 0px 2px 4px 0px, rgba(14, 30, 37, 0.32) 0px 2px 16px 0px;
+                                border-radius: 0.3rem;
+                                padding: 5px 10px;
+                                margin-top: 10px;
+                            }"""):      
+
+            with st.container(border = True):
+                col21, col22 = st.columns([1, 5], border =False)
+                with col21:
+                    treeSel = col21.selectbox('Select the metric to display', ['Storage Utilization', 'Application Resource Consumption', 'Network Traffic'], key='treeSel', index = 0)
+                
+                    treemap_titles = [["Storage Utilization", "Visualizing Disk Space Distribution Across Servers Over the Last 24 Hours"],
+                        ["Application Resource Consumption", "Insights into CPU Distributed Across Different Applications in the Past Day"], 
+                        ["Network Traffic", "Monitoring Network Bandwidth Utilization Across Applications and Servers"]]
+            
+                    topTitle = treemap_titles[0][0] if treeSel == 'Storage Utilization' else treemap_titles[1][0] if treeSel == 'Application Resource Consumption' else treemap_titles[2][0]
+                    bodytitle = treemap_titles[0][1] if treeSel == 'Storage Utilization' else treemap_titles[1][1] if treeSel == 'Application Resource Consumption' else treemap_titles[2][1]
+
+                with col22:
+                    col22.markdown(f"""
+                        <div class="container metrics text-center" style="margin-top: 1px; height:68px;">
+                            <p style="font-size: 18px; font-weight: bold; text-align: center;">{topTitle}</p>
+                            <p style="margin-top: -15px; font-size: 16px; text-align: center; font-family: Tahoma, Verdana;">
+                                {bodytitle}
+                            </p>
+                        </div>
+                        </div> """, unsafe_allow_html= True)
+          
+                if treeSel == 'Storage Utilization':
+                        figs = px.treemap(
+                            data_frame=dataWtihLastValues, 
+                            path=['ManagementZone', 'HostAndIP'],  
+                            values=dataWtihLastValues['DiskUsage'],  
+                            color=dataWtihLastValues['DiskUsage'],  
+                            color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ],  # Gradient: red -> yellow -> green
+                            range_color=(0, 100),  # Dynamic color range
+                            hover_data={'DiskUsage': ':.2f', 'HostAndIP': True}, 
+                            height=400)
+                        figs.update_traces(
+                            hovertemplate=
+                                        "<b>Host and IP:</b> %{customdata[1]}<br>"
+                                        "<b>Percentage UsedSpace:</b> %{color:.2f}<extra></extra>")
+                        figs.update_layout(
+                            margin=dict(l=0, r=0, t=0, b=0),
+                            uniformtext=dict(minsize=10, mode='hide'), )
+                        st.plotly_chart(figs, use_container_width=True)      
+                elif treeSel == 'Application Resource Consumption':
+                        figs = px.treemap(
+                            data_frame=dataWtihLastValues, 
+                            path=['ApplicationName', 'HostAndIP'],  
+                            values=dataWtihLastValues['CPUUsage'],  
+                            color=dataWtihLastValues['CPUUsage'],  
+                            color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ],  # Gradient: red -> yellow -> green
+                            range_color=(0, 100),  # Dynamic color range
+                            hover_data={'CPUUsage': ':.2f', 'HostAndIP': True}, 
+                            height=400)
+                        figs.update_traces(
+                            hovertemplate=
+                                        "<b>Host and IP:</b> %{customdata[1]}<br>"
+                                        "<b>Percentage CPUusage:</b> %{color:.2f}<extra></extra>")
+                        figs.update_layout(
+                            margin=dict(l=0, r=0, t=0, b=0),
+                            uniformtext=dict(minsize=10, mode='hide'), )
+                        st.plotly_chart(figs, use_container_width=True)                            
+                elif treeSel == 'Network Traffic':
+                        dataWtihLastValues['NetworkTrafficAggregate'] = dataWtihLastValues['NetworkTrafficAggregate'].replace(0, 1e-6)
+                        figs = px.treemap(
+                            data_frame=dataWtihLastValues, 
+                            path=['ApplicationName', 'HostAndIP'],  
+                            values=dataWtihLastValues['NetworkTrafficAggregate'], 
+                            color=dataWtihLastValues['NetworkTrafficAggregate'], 
+                            color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ],  # Gradient: red -> yellow -> green
+                            range_color=(0, max(dataWtihLastValues['NetworkTrafficAggregate'])), 
+                            hover_data={'NetworkTrafficAggregate': ':.2f', 'HostAndIP': True}, 
+                            height=400)
+                        figs.update_traces(
+                            hovertemplate=
+                                        "<b>Host and IP:</b> %{customdata[1]}<br>"
+                                        "<b>Net Traffic Agg:</b> %{color:.2f}<extra></extra>")
+                        figs.update_layout(
+                            margin=dict(l=0, r=0, t=0, b=0),
+                            uniformtext=dict(minsize=10, mode='hide'), )
+                        st.plotly_chart(figs, use_container_width=True)   
+
+
+    st.session_state['usageMonitor'] += 1              
+    heatMap()                              
+    displayTable() 
+
+    # pivotTable24hrs()
     st.session_state['usageMonitor'] += 1
 
     st.markdown("<br>", unsafe_allow_html=True)

@@ -361,7 +361,7 @@ with tab1:
                 if netType == 'Received and Sent':
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(
-                        x=vizData.index, y=vizData['NetworkTrafficReceived'], fill='tozeroy', mode='lines', line=dict(color='green'), name='Traffic Received'))
+                        x=vizData.LogTimestamp, y=vizData['NetworkTrafficReceived'], fill='tozeroy', mode='lines', line=dict(color='green'), name='Traffic Received'))
                     fig.add_trace(go.Scatter(x=vizData.index, y=vizData['NetworkTrafficSent'], fill='tonexty', mode='lines', line=dict(color='#FFEB00'),name='Traffic Sent'  ))
                     fig.update_layout(
                         xaxis_title='Time', yaxis_title='InBound and OutBound Network Reception', height=300, margin=dict(l=0, r=0, t=40, b=10))
@@ -369,7 +369,7 @@ with tab1:
 
                 elif netType == 'Aggregate':
                     fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=vizData.index, y=vizData['NetworkTrafficAggregate'], fill='tozeroy', mode='lines', line=dict(color='green') ))
+                    fig.add_trace(go.Scatter(x=vizData.LogTimestamp, y=vizData['NetworkTrafficAggregate'], fill='tozeroy', mode='lines', line=dict(color='green') ))
                     fig.update_layout(
                         # title=f"CPU Usage In Last {output}",
                         xaxis_title='Time', yaxis_title='Aggregate Network Reception', height=300, margin=dict(l=0,  r=0, t=40, b=10  ))     
@@ -591,7 +591,6 @@ with tab1:
             usageData['LogTimestamp'] = pd.to_datetime(usageData['LogTimestamp'])
             startTime = str(usageData.LogTimestamp.max() - timedelta(hours=24))
             
-            usageData['LogTimestamp'] = pd.to_datetime(usageData['LogTimestamp'])
             usageData.set_index('LogTimestamp', inplace = True)
             usageData = usageData[['HostAndIP', 'CPUUsage', 'DiskUsage', 'MemoryUsage', 'NetworkTrafficReceived', 'NetworkTrafficSent', 'NetworkTrafficAggregate']]
 
@@ -636,20 +635,38 @@ with tab1:
   
             heatmapData1 = data[data['LogTimestamp'] >= calc.latestLog][['HostAndIP', 'DriveLetter', 'CPUUsage', 'DiskUsage', 'MemoryUsage']]
             with col2:
-                option1 = col2.selectbox('Metric Selector', ['CPUUsage', 'DiskUsage', 'MemoryUsage'], key='heatmap',  help="Displays a heatmap of servers' resource consumption. Use the dropdown to select resource of interest", index = 0) 
+                col20, col21 = col2.columns([1, 1])
+                with col20:
+                    option1 = col20.selectbox('Metric Selector', ['CPUUsage', 'DiskUsage', 'MemoryUsage'], key='heatmap',  help="Displays a information of servers' resource consumption. Use the dropdown to select resource of interest", index = 0) 
+                with col21:
+                    option2 = col21.selectbox('Select prefered plot type', ['Heatmap', 'Barchart'], index = 0, help='Choose either barchart or heatmap to represent your information')
+
                 if option1 == 'CPUUsage':
                     heatmapData1 = heatmapData1.groupby(['HostAndIP'])[['CPUUsage']].mean().reset_index()
-                    figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['CPUUsage'], color=heatmapData1['CPUUsage'], color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'CPUUsage': ':.2f',  'HostAndIP': True,   }, height = 400 )
+                    if option2 == 'Heatmap':             
+                        figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['CPUUsage'], color=heatmapData1['CPUUsage'], color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'CPUUsage': ':.2f',  'HostAndIP': True,   }, height = 400 )
+                    else:
+                        figs = px.bar(data_frame=heatmapData1, x='HostAndIP', y='CPUUsage', color='CPUUsage', color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'CPUUsage': ':.2f',  'HostAndIP': True,   }, height = 400 )
+
                 elif option1 == 'DiskUsage':
                     heatmapData1 = heatmapData1.groupby(['HostAndIP'])[['DiskUsage']].mean().reset_index()
-                    figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['DiskUsage'], color=heatmapData1['DiskUsage'], color_continuous_scale=[ (0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100) , hover_data={ 'DiskUsage': ':.2f',  'HostAndIP': True }, height = 400)
+                    if option2 == 'Heatmap':
+                        figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['DiskUsage'], color=heatmapData1['DiskUsage'], color_continuous_scale=[ (0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100) , hover_data={ 'DiskUsage': ':.2f',  'HostAndIP': True }, height = 400)
+                    else:
+                        figs = px.bar(data_frame=heatmapData1, x='HostAndIP', y='DiskUsage', color='DiskUsage', color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'DiskUsage': ':.2f',  'HostAndIP': True,   }, height = 400 ) 
+
                 elif option1 == 'MemoryUsage':
                     heatmapData1 = heatmapData1.groupby(['HostAndIP'])[['MemoryUsage']].mean().reset_index()
-                    figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['MemoryUsage'], color=heatmapData1['MemoryUsage'], color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100) , hover_data={ 'MemoryUsage': ':.2f',  'HostAndIP': True}, height = 400)
+                    if option2 == 'Heatmap':
+                        figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['MemoryUsage'], color=heatmapData1['MemoryUsage'], color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100) , hover_data={ 'MemoryUsage': ':.2f',  'HostAndIP': True}, height = 400)
+                    else:
+                        figs = px.bar(data_frame=heatmapData1, x='HostAndIP', y='MemoryUsage', color='MemoryUsage', color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'MemoryUsage': ':.2f',  'HostAndIP': True,   }, height = 400 ) 
+
                 figs.update_traces(
                     hovertemplate="<b>Host and IP:</b> %{customdata[1]}<br>"
                   "<b>Value:</b> %{color:.2f}%<extra></extra>")
                 figs.update_layout(
+                    showlegend=False,
                     margin=dict(l=0, r=0, t=0, b=0),  # Remove margins
                     uniformtext=dict(minsize=10, mode='hide'),  # Manage text size and visibility
                 )
@@ -678,9 +695,9 @@ with tab1:
                 with col21:
                     treeSel = col21.selectbox('Select the metric to display', ['Storage Utilization', 'Application Resource Consumption', 'Network Traffic'], key='treeSel', index = 0)
                 
-                    treemap_titles = [["Storage Utilization", "Visualizing Disk Space Distribution Across Servers Over the Last 24 Hours"],
-                        ["Application Resource Consumption", "Insights into CPU Distributed Across Different Applications in the Past Day"], 
-                        ["Network Traffic", "Monitoring Network Bandwidth Utilization Across Applications and Servers"]]
+                    treemap_titles = [["Storage Utilization", "Visualizing Most Recent Disk Space Distribution Across Servers (Based On The Selected Timeframe)"],
+                        ["Application Resource Consumption", "Insights into the Most Recent CPU Resource Consumption Across Different Applications"], 
+                        ["Network Traffic", "Monitoring Most Recent Network Bandwidth Utilization Across Applications and Servers"]]
             
                     topTitle = treemap_titles[0][0] if treeSel == 'Storage Utilization' else treemap_titles[1][0] if treeSel == 'Application Resource Consumption' else treemap_titles[2][0]
                     bodytitle = treemap_titles[0][1] if treeSel == 'Storage Utilization' else treemap_titles[1][1] if treeSel == 'Application Resource Consumption' else treemap_titles[2][1]
@@ -751,7 +768,25 @@ with tab1:
                             uniformtext=dict(minsize=10, mode='hide'), )
                         st.plotly_chart(figs, use_container_width=True)   
 
+    def displayAndHostAvailability():
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            col1.markdown(f"""
+                <div class="container metrics text-center" style="margin-top: 1px; height:68px;">
+                <p style="font-size: 18px; font-weight: bold; text-align: center;">Overview of Resource Availability and Server Uptime</p>
+                </div>
+                </div> """, unsafe_allow_html= True)
+            displayTable() 
 
+        with col2:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=vizData.index, y=vizData['MemoryUsage'], fill='tozeroy', mode='lines', line=dict(color='blue') ))
+            fig.update_layout(
+                title=f"Memory Usage In Last {output}",
+                xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=30, t=40, b=10  ))     
+            st.plotly_chart(fig, use_container_width=True) 
+
+# <p style="margin-top: -15px; font-size: 16px; text-align: center; font-family: Tahoma, Verdana;">
     st.session_state['usageMonitor'] += 1              
     heatMap()                              
     displayTable() 

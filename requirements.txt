@@ -1,0 +1,5 @@
+plotly
+streamlit-option-menu
+streamlit-shadcn-ui                   
+streamlit-extras
+streamlit-antd-components

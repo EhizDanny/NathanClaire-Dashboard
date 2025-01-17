@@ -109,6 +109,15 @@ if not data.empty:
 else:
     st.session_state["data_empty"] = True
 
+color_continuous_scales = [
+                        (0.0, "#F93827"),  # Red for 0 to 70
+                        (0.7, "#F93827"),  # Red continues until 70
+                        (0.7, "#FFF574"),  # Yellow starts at 70
+                        (0.85, "#FFF574"), # Yellow continues until 85
+                        (0.85, "#16C47F"), # Green starts at 85
+                        (1.0, "#16C47F")   # Green continues until 100
+                    ]
+
 # def emptinessDataCheck():
 #     if not data.empty:
 #         st.session_state["data_empty"] = False
@@ -345,6 +354,17 @@ with tab1:
             # Preprocess the Metric data for visuals 
             vizData = st.session_state['metricData'][['LogTimestamp', 'CPUUsage', 'MemoryUsage', 'DiskUsage', 'NetworkTrafficReceived', 'NetworkTrafficSent', 'NetworkTrafficAggregate']]
             vizData['LogTimestamp'] = pd.to_datetime(vizData['LogTimestamp'])
+            vizData = vizData.set_index('LogTimestamp')
+            # Group using pd.Grouper
+            vizData = vizData.groupby(pd.Grouper(freq='3min')).agg({
+                'CPUUsage': 'mean',
+                'MemoryUsage': 'mean',
+                'DiskUsage': 'mean',
+                'NetworkTrafficReceived': 'mean',
+                'NetworkTrafficSent': 'mean',
+                'NetworkTrafficAggregate': 'mean'
+            })
+
             # if not vizData.empty:
             #     vizData = vizData.resample('1min', on = 'LogTimestamp').mean()
             # else:
@@ -361,18 +381,18 @@ with tab1:
                 if netType == 'Received and Sent':
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(
-                        x=vizData.LogTimestamp, y=vizData['NetworkTrafficReceived'], fill='tozeroy', mode='lines', line=dict(color='green'), name='Traffic Received'))
+                        x=vizData.index, y=vizData['NetworkTrafficReceived'], fill='tozeroy', mode='lines', line=dict(color='green'), name='Traffic Received'))
                     fig.add_trace(go.Scatter(x=vizData.index, y=vizData['NetworkTrafficSent'], fill='tonexty', mode='lines', line=dict(color='#FFEB00'),name='Traffic Sent'  ))
                     fig.update_layout(
-                        xaxis_title='Time', yaxis_title='InBound and OutBound Network Reception', height=300, margin=dict(l=0, r=0, t=40, b=10))
+                        xaxis_title='Time', yaxis_title='InBound and OutBound Network Reception', height=300, margin=dict(l=0, r=0, t=10, b=0))
                     st.plotly_chart(fig, use_container_width=True)
 
                 elif netType == 'Aggregate':
                     fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=vizData.LogTimestamp, y=vizData['NetworkTrafficAggregate'], fill='tozeroy', mode='lines', line=dict(color='green') ))
+                    fig.add_trace(go.Scatter(x=vizData.index, y=vizData['NetworkTrafficAggregate'], fill='tozeroy', mode='lines', line=dict(color='green') ))
                     fig.update_layout(
                         # title=f"CPU Usage In Last {output}",
-                        xaxis_title='Time', yaxis_title='Aggregate Network Reception', height=300, margin=dict(l=0,  r=0, t=40, b=10  ))     
+                        xaxis_title='Time', yaxis_title='Aggregate Network Reception', height=300, margin=dict(l=0,  r=0, t=10, b=0  ))     
                     st.plotly_chart(fig, use_container_width=True)
             with col3:
                 calc2 = inf(st.session_state['metricData'])
@@ -493,6 +513,7 @@ with tab1:
             output = f"{days} days"
         else:
             output = f"{hours} hours"
+        
 
         col1, col2, col3 = st.columns([1,1,1], border = False)
         with col1:
@@ -506,7 +527,7 @@ with tab1:
                                 margin-top: 10px;
                             }"""):
                     fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=vizData.index, y=vizData['CPUUsage'], fill='tozeroy', mode='lines', line=dict(color='green') ))
+                    fig.add_trace(go.Scatter(x=vizData.index, y=vizData['CPUUsage'], fill='tozeroy', mode='lines', connectgaps=False, line=dict(color='green') ))
                     fig.update_layout(
                         title=f"CPU Usage In Last {output}",
                         xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=30, t=40, b=10  ))     
@@ -549,42 +570,6 @@ with tab1:
     filters()
 
         # -------------------------------------------- 3rd row -----------------------------------------------
-    @st.fragment
-    def displayTable():
-            usageData = st.session_state['data'].copy()
-            usageData['LogTimestamp'] = pd.to_datetime(usageData['LogTimestamp'])
-            latestLog = usageData['LogTimestamp'].max()
-            filtered_data = usageData[usageData['LogTimestamp'] >= latestLog]
-
-            # Create a new DataFrame where each row corresponds to a drive on a server
-            quickMetricTable = filtered_data[['HostAndIP', 'DriveLetter', 'ManagementZone', 
-                                            'ApplicationName', 'ApplicationOwner', 'TotalDiskSpaceGB', 
-                                            'TotalFreeDiskGB', 'DiskUsage', 'CPUUsage', 'MemoryUsage', 
-                                            'Datacenter']].copy()
-
-            # Remove duplicates to ensure a unique row for each server-drive combination
-            quickMetricTable = quickMetricTable.drop_duplicates(subset=['HostAndIP', 'DriveLetter'])
-            quickMetricTable.rename(columns={
-                'HostAndIP': 'Hostname and IP',
-                'TotalDiskSpaceGB': 'DiskSpace (GB)',
-                'TotalFreeDiskGB': 'DiskAvailable (GB)',
-                'DiskUsage': 'DiskUsed (%)',
-                'CPUUsage': 'CPU Usage (%)',
-                'MemoryUsage': 'Memory Usage (%)',
-                'Datacenter': 'Data Center'
-            }, inplace=True)
-
-            quickMetricTable['Last Seen'] = quickMetricTable['Hostname and IP'].map(
-                lambda server: usageData[usageData['HostAndIP'] == server]['LogTimestamp'].max())
-            quickMetricTable['Last Seen (Days Ago)'] = quickMetricTable['Hostname and IP'].map(
-                lambda server: (datetime.now() - usageData[usageData['HostAndIP'] == server]['LogTimestamp'].max()).total_seconds() // 86400)
-            quickMetricTable['Last Seen (Hours Ago)'] = quickMetricTable['Hostname and IP'].map(
-                lambda server: (datetime.now() - usageData[usageData['HostAndIP'] == server]['LogTimestamp'].max()).total_seconds() // 3600)
-            
-            quickMetricTable.reset_index(drop=True, inplace=True)
-            st.session_state['quickMetricTable'] = quickMetricTable   
-            return st.dataframe(st.session_state['quickMetricTable'], use_container_width=True) 
-
     @st.fragment
     def pivotTable24hrs(value):
             usageData = st.session_state['data'].copy()
@@ -647,6 +632,7 @@ with tab1:
                         figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['CPUUsage'], color=heatmapData1['CPUUsage'], color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'CPUUsage': ':.2f',  'HostAndIP': True,   }, height = 400 )
                     else:
                         figs = px.bar(data_frame=heatmapData1, x='HostAndIP', y='CPUUsage', color='CPUUsage', color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'CPUUsage': ':.2f',  'HostAndIP': True,   }, height = 400 )
+                        figs.update_traces(textposition='inside')
 
                 elif option1 == 'DiskUsage':
                     heatmapData1 = heatmapData1.groupby(['HostAndIP'])[['DiskUsage']].mean().reset_index()
@@ -654,6 +640,7 @@ with tab1:
                         figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['DiskUsage'], color=heatmapData1['DiskUsage'], color_continuous_scale=[ (0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100) , hover_data={ 'DiskUsage': ':.2f',  'HostAndIP': True }, height = 400)
                     else:
                         figs = px.bar(data_frame=heatmapData1, x='HostAndIP', y='DiskUsage', color='DiskUsage', color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'DiskUsage': ':.2f',  'HostAndIP': True,   }, height = 400 ) 
+                        figs.update_traces(textposition='inside')
 
                 elif option1 == 'MemoryUsage':
                     heatmapData1 = heatmapData1.groupby(['HostAndIP'])[['MemoryUsage']].mean().reset_index()
@@ -661,6 +648,7 @@ with tab1:
                         figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['MemoryUsage'], color=heatmapData1['MemoryUsage'], color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100) , hover_data={ 'MemoryUsage': ':.2f',  'HostAndIP': True}, height = 400)
                     else:
                         figs = px.bar(data_frame=heatmapData1, x='HostAndIP', y='MemoryUsage', color='MemoryUsage', color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'MemoryUsage': ':.2f',  'HostAndIP': True,   }, height = 400 ) 
+                        figs.update_traces(textposition='inside')
 
                 figs.update_traces(
                     hovertemplate="<b>Host and IP:</b> %{customdata[1]}<br>"
@@ -690,14 +678,14 @@ with tab1:
                                 margin-top: 10px;
                             }"""):    
 
-            with st.container(border = True):
+            with st.container(border = False):
                 col21, col22 = st.columns([1, 5], border =False)
                 with col21:
                     treeSel = col21.selectbox('Select the metric to display', ['Storage Utilization', 'Application Resource Consumption', 'Network Traffic'], key='treeSel', index = 0)
                 
-                    treemap_titles = [["Storage Utilization", "Visualizing Most Recent Disk Space Distribution Across Servers (Based On The Selected Timeframe)"],
-                        ["Application Resource Consumption", "Insights into the Most Recent CPU Resource Consumption Across Different Applications"], 
-                        ["Network Traffic", "Monitoring Most Recent Network Bandwidth Utilization Across Applications and Servers"]]
+                    treemap_titles = [["Storage Utilization", "Visualizing Most Recent Disk Space Distribution Across Servers Classified Under Individual Management Zones (Based On The Selected Timeframe)"],
+                        ["Application Resource Consumption", "Insights into the Most Recent CPU Resource Consumption Across Different Servers Classified Under Individual Management Zone"], 
+                        ["Network Traffic", "Monitoring Most Recent Network Bandwidth Utilization Across Management Zones and Servers"]]
             
                     topTitle = treemap_titles[0][0] if treeSel == 'Storage Utilization' else treemap_titles[1][0] if treeSel == 'Application Resource Consumption' else treemap_titles[2][0]
                     bodytitle = treemap_titles[0][1] if treeSel == 'Storage Utilization' else treemap_titles[1][1] if treeSel == 'Application Resource Consumption' else treemap_titles[2][1]
@@ -768,45 +756,130 @@ with tab1:
                             uniformtext=dict(minsize=10, mode='hide'), )
                         st.plotly_chart(figs, use_container_width=True)   
 
+    heatMap()
+
+    def serviceUptime():
+        usageData = data.copy()
+        usageData['LogTimestamp'] = pd.to_datetime(usageData['LogTimestamp'])
+        start_time = usageData['LogTimestamp'].min()
+        end_time = usageData['LogTimestamp'].max()
+        
+        global active_hours, total_timeframe_hours
+        total_timeframe_hours = (end_time - start_time).total_seconds() / 3600  # Total timeframe in hours
+
+        # Group by 'HostAndIP' and calculate the active hours for each server
+        usageData['ActiveHour'] = usageData['LogTimestamp'].dt.floor('h')  # Round timestamps to the nearest hour
+        active_hours = (
+            usageData.groupby('HostAndIP')['ActiveHour']
+            .nunique()
+            .reset_index()
+            .rename(columns={'ActiveHour': 'ActiveTimeHours'})
+        )
+        active_hours['Service Uptime (%)'] = round((active_hours['ActiveTimeHours'] / total_timeframe_hours) * 100, 2)
+        active_hours.set_index('HostAndIP', inplace = True)
+        active_hours.sort_values(by ='Service Uptime (%)', ascending=False, inplace=True)
+        return active_hours
+        
+
+    @st.fragment
     def displayAndHostAvailability():
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            col1.markdown(f"""
-                <div class="container metrics text-center" style="margin-top: 1px; height:68px;">
-                <p style="font-size: 18px; font-weight: bold; text-align: center;">Overview of Resource Availability and Server Uptime</p>
-                </div>
-                </div> """, unsafe_allow_html= True)
-            displayTable() 
+        with stylable_container(
+                    key="visual_container40",
+                    css_styles="""{
+                                # border: 1px solid rgba(49, 51, 63, 0.2);
+                                # box-shadow: rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px;
+                                box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+                                # border-radius: 0.3rem;
+                                padding: 20px 20px 20px 20px;
+                                margin-top: 10px;
+                            }"""):    
+            with st.container(border = False):
+                st.markdown(f"""
+                    <div class="container metrics text-center" style="margin-top: 1px; height:68px;margin-bottom: 10px">
+                    <p style="font-size: 18px; font-weight: bold; text-align: center; margin-top: 10px">Overview of Resource Availability and Service Uptime Within the Selected Timeframe</p>
+                    </div>
+                    </div> """, unsafe_allow_html= True)
+                            
+                usageData = st.session_state['data'].copy()
+                usageData['LogTimestamp'] = pd.to_datetime(usageData['LogTimestamp'])
+                latestLog = usageData['LogTimestamp'].max()
+                filtered_data = usageData[usageData['LogTimestamp'] >= latestLog]
+                # Create a new DataFrame where each row corresponds to a drive on a server
+                quickMetricTable = filtered_data[['HostAndIP', 'DriveLetter', 'ManagementZone', 
+                                                'ApplicationName', 'ApplicationOwner', 'TotalDiskSpaceGB', 
+                                                'TotalFreeDiskGB', 'DiskUsage', 'CPUUsage', 'MemoryUsage', 
+                                                'Datacenter']].copy()
+                # Remove duplicates to ensure a unique row for each server-drive combination
+                quickMetricTable = quickMetricTable.drop_duplicates(subset=['HostAndIP', 'DriveLetter'])
+                quickMetricTable.rename(columns={
+                    'HostAndIP': 'Hostname and IP',
+                    'TotalDiskSpaceGB': 'DiskSpace (GB)',
+                    'TotalFreeDiskGB': 'DiskAvailable (GB)',
+                    'DiskUsage': 'DiskUsed (%)',
+                    'CPUUsage': 'CPU Usage (%)',
+                    'MemoryUsage': 'Memory Usage (%)',
+                    'Datacenter': 'Data Center'
+                }, inplace=True)
+                quickMetricTable['Last Seen'] = quickMetricTable['Hostname and IP'].map(
+                    lambda server: usageData[usageData['HostAndIP'] == server]['LogTimestamp'].max())
+                quickMetricTable['Last Seen (Days Ago)'] = quickMetricTable['Hostname and IP'].map(
+                    lambda server: (datetime.now() - usageData[usageData['HostAndIP'] == server]['LogTimestamp'].max()).total_seconds() // 86400)
+                quickMetricTable['Last Seen (Hours Ago)'] = quickMetricTable['Hostname and IP'].map(
+                    lambda server: (datetime.now() - usageData[usageData['HostAndIP'] == server]['LogTimestamp'].max()).total_seconds() // 3600)
+                            
+                quickMetricTable.set_index('Hostname and IP',  inplace=True)
+                #Give duplicate hostnames a suffix of 0 - 1 etc to differentiate it from the latter
+                quickMetricTable.index = quickMetricTable.index.to_series().astype(str) + "_" + quickMetricTable.groupby(level=0).cumcount().astype(str)
+                st.session_state['quickMetricTable'] = quickMetricTable   
 
-        with col2:
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=vizData.index, y=vizData['MemoryUsage'], fill='tozeroy', mode='lines', line=dict(color='blue') ))
-            fig.update_layout(
-                title=f"Memory Usage In Last {output}",
-                xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=30, t=40, b=10  ))     
-            st.plotly_chart(fig, use_container_width=True) 
+                col1, col2, col3 = st.columns([2.5,1.3,1.3], border=True)
+                with col1:
+                    col1.write(st.session_state['quickMetricTable'].style.background_gradient(cmap='Blues', axis=0))
+                with col2:
+                    col2.dataframe(serviceUptime().style.background_gradient(cmap='Blues', axis=0), use_container_width=True)
+                with col3:
+                    serviceData= serviceUptime()
+                    serviceData.sort_values(by ='Service Uptime (%)', ascending=True, inplace=True)
+                    serviceData.reset_index(inplace = True)
+                    figs = px.bar(data_frame=serviceData, y='HostAndIP', x='Service Uptime (%)', color='Service Uptime (%)', color_continuous_scale= color_continuous_scales, range_color=(0, 100), hover_data={ 'Service Uptime (%)': ':.2f',  'HostAndIP': True,   }, height = 400, title = 'Service Uptime' )   
+                    figs.update_traces(textposition='inside', texttemplate="%{x}", )
+                    figs.update_layout(
+                        xaxis=dict(
+                            title="Service Uptime (%)",
+                            showgrid=True,
+                            showline=True,
+                        ),
+                        yaxis=dict(
+                            title="Host and IP",
+                            tickmode="array",
+                            tickvals=serviceData['HostAndIP'],  # List all servers
+                            showgrid=False,
+                            showline=True,
+                            automargin=True,
+                            fixedrange=True,  # Allow scrolling
+                            showticklabels=False
+                        ),
+                        # barmode="group",
+                        # yaxis=dict(showticklabels=False),  # Hide y-axis tick labels
+                        margin=dict(l=0, r=0, t=40, b=0),  # Remove margins
+                        # uniformtext=dict(minsize=10)  # Adjust text visibility
+                    )   
+                    figs.update_yaxes(
+                        fixedrange=False,  # Allow scrolling
+                        showticklabels=True,  # Show tick labels
+                    )            
+                    figs.update(layout_coloraxis_showscale=False)  # hiding color-bar 
+                    col3.plotly_chart(figs, use_container_width=True)                    
 
-# <p style="margin-top: -15px; font-size: 16px; text-align: center; font-family: Tahoma, Verdana;">
-    st.session_state['usageMonitor'] += 1              
-    heatMap()                              
-    displayTable() 
+    displayAndHostAvailability()
 
-    # pivotTable24hrs()
     st.session_state['usageMonitor'] += 1
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-
-
-
 st.session_state['usageMonitor'] += 1
 end_time = time.time()
 uiloading_time = end_time - start_time
 st.sidebar.markdown(f"App UI and Analysis loaded in {uiloading_time:.2f} seconds.")
 st.sidebar.markdown(f"Data Connection and Refresh loaded in {dataloading_time:.2f} seconds.")
 
-# time spent on each page, and the total time spent on all pages
-# journey log:  how the users moved from one p[age to the other
 
 #         with col1:
 #             with stylable_container( key = 'containerTwo',

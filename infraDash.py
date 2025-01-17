@@ -188,7 +188,7 @@ with head2:
     </div>""", unsafe_allow_html=True)
 
 
-st.sidebar.image('PNG/Red.png')
+# st.sidebar.image('PNG/Red.png')
 # antd.divider(label='HOME', icon='house', align='center', color='gray')
 
 tab1, tab2 = st.tabs(["📈 Infrastructure Metrics", "🗃 Server Metrics"])

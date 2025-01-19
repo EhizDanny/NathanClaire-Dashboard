@@ -114,8 +114,8 @@ color_continuous_scales = [
                         (0.7, "#F93827"),  # Red continues until 70
                         (0.7, "#FFF574"),  # Yellow starts at 70
                         (0.85, "#FFF574"), # Yellow continues until 85
-                        (0.85, "#16C47F"), # Green starts at 85
-                        (1.0, "#16C47F")   # Green continues until 100
+                        (0.85, "#00FF9C"), # Green starts at 85
+                        (1.0, "#00FF9C")   # Green continues until 100
                     ]
 
 # def emptinessDataCheck():
@@ -188,7 +188,7 @@ with head2:
     </div>""", unsafe_allow_html=True)
 
 
-# st.sidebar.image('PNG/Red.png')
+st.sidebar.image('PNG/Red.png')
 # antd.divider(label='HOME', icon='house', align='center', color='gray')
 
 tab1, tab2 = st.tabs(["📈 Infrastructure Metrics", "🗃 Server Metrics"])
@@ -409,7 +409,7 @@ with tab1:
                     # delta = {'reference': 400, 'increasing': {'color': "RebeccaPurple"}},
                     gauge = {
                         'axis': {'range': [1, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
-                        'bar': {'color': '#16C47F' if calc2.currentCPU <= 75 else '#FFF574' if calc2.currentCPU <= 85 else '#F93827'},
+                        'bar': {'color': '#00FF9C' if calc2.currentCPU <= 75 else '#FFF574' if calc2.currentCPU <= 85 else '#F93827'},
                         # 'bgcolor': "white",
                         'borderwidth': 1, 'bordercolor': "white",
                         'steps': [
@@ -437,7 +437,7 @@ with tab1:
                     # delta = {'reference': 400, 'increasing': {'color': "RebeccaPurple"}},
                     gauge = {
                         'axis': {'range': [1, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
-                        'bar': {'color': '#16C47F' if calc2.currentMemory <= 70 else '#FFF574' if calc2.currentMemory <= 85 else '#F93827'},
+                        'bar': {'color': '#00FF9C' if calc2.currentMemory <= 70 else '#FFF574' if calc2.currentMemory <= 85 else '#F93827'},
                         'bgcolor': "gray",
                         'borderwidth': 1,
                         'bordercolor': "white",
@@ -466,7 +466,7 @@ with tab1:
                     # delta = {'reference': 400, 'increasing': {'color': "RebeccaPurple"}},
                     gauge = {
                         'axis': {'range': [1, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
-                        'bar': {'color': '#16C47F' if calc2.currentDisk <= 75 else '#FFF574' if calc2.currentDisk <= 85 else '#F93827'},
+                        'bar': {'color': '#00FF9C' if calc2.currentDisk <= 75 else '#FFF574' if calc2.currentDisk <= 85 else '#F93827'},
                         # 'bgcolor': "white",
                         'borderwidth': 1,
                         'bordercolor': "white",
@@ -516,6 +516,10 @@ with tab1:
         
 
         col1, col2, col3 = st.columns([1,1,1], border = False)
+        # Define thresholds and colors
+        thresholds = [0, 70, 85, 100]
+        colours = ['#00FF9C', '#FFF574', '#F93827']
+        threshold_labels = ['0 - 70', '70 - 85', '85+']
         with col1:
             with stylable_container(
                     key="visual_container21",
@@ -526,13 +530,33 @@ with tab1:
                                 padding: 5px 10px;
                                 margin-top: 10px;
                             }"""):
+                    # fig = go.Figure()
+                    # fig.add_trace(go.Scatter(x=vizData.index, y=vizData['CPUUsage'], fill='tozeroy', mode='lines', connectgaps=False, line=dict(color='green') ))
+                    # fig.update_layout(
+                    #     title=f"CPU Usage In Last {output}",
+                    #     xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=30, t=40, b=10  ))     
+                    # st.plotly_chart(fig, use_container_width=True)
                     fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=vizData.index, y=vizData['CPUUsage'], fill='tozeroy', mode='lines', connectgaps=False, line=dict(color='green') ))
-                    fig.update_layout(
-                        title=f"CPU Usage In Last {output}",
-                        xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=30, t=40, b=10  ))     
-                    st.plotly_chart(fig, use_container_width=True)
-
+                    if not data.empty:
+                        for i in range(len(thresholds) - 1):
+                            fig.add_trace(go.Scatter(
+                                x=[vizData.index[0], vizData.index[-1], vizData.index[-1], vizData.index[0]],
+                                y=[thresholds[i], thresholds[i], thresholds[i + 1], thresholds[i + 1]],
+                                fill='toself',  # Fill the area
+                                fillcolor=colours[i],
+                                line=dict(color='rgba(255,255,255,0)'),  # Transparent line
+                            ))
+                        # Add the line plot after the filled areas
+                        fig.add_trace(go.Scatter(x=vizData.index, y=vizData['CPUUsage'], mode='lines', connectgaps=True, line=dict(color='blue', width=2)))
+                        fig.update_layout(
+                            showlegend=False,
+                            title={'text': f"CPU Usage In Last {output}", 'x': 0.3},
+                            yaxis=dict(range=[-10, 100]),  # Adjust Y-axis limits based on your thresholds
+                            xaxis_title = None, yaxis_title = None, height = 350, margin=dict(l=0,  r=0, t=40, b=10  ))
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        None
+                    
         with col2:
             with stylable_container(
                     key="visual_container21",
@@ -544,12 +568,25 @@ with tab1:
                                 margin-top: 10px;
                             }"""):
                     fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=vizData.index, y=vizData['MemoryUsage'], fill='tozeroy', mode='lines', line=dict(color='blue') ))
-                    fig.update_layout(
-                        title=f"Memory Usage In Last {output}",
-                        xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=30, t=40, b=10  ))     
-                    st.plotly_chart(fig, use_container_width=True)  
-
+                    if not data.empty:
+                        for i in range(len(thresholds) - 1):
+                            fig.add_trace(go.Scatter(
+                                x=[vizData.index[0], vizData.index[-1], vizData.index[-1], vizData.index[0]],
+                                y=[thresholds[i], thresholds[i], thresholds[i + 1], thresholds[i + 1]],
+                                fill='toself',  # Fill the area
+                                fillcolor=colours[i],
+                                line=dict(color='rgba(255,255,255,0)'),  # Transparent line
+                            ))
+                        # Add the line plot after the filled areas
+                        fig.add_trace(go.Scatter(x=vizData.index, y=vizData['MemoryUsage'], mode='lines', connectgaps=True, line=dict(color='blue', width=2)))
+                        fig.update_layout(
+                            showlegend=False,
+                            title={'text': f"Memory Usage In Last {output}", 'x': 0.3},
+                            yaxis=dict(range=[-10, 100]),  # Adjust Y-axis limits based on your thresholds
+                            xaxis_title = None, yaxis_title = None, height = 350, margin=dict(l=0,  r=0, t=40, b=10  ))
+                        st.plotly_chart(fig, use_container_width=True)  
+                    else:
+                        None
         with col3:
             with stylable_container(
                     key="visual_container21",
@@ -561,11 +598,26 @@ with tab1:
                                 margin-top: 10px;
                             }"""):
                     fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=vizData.index, y=vizData['DiskUsage'], fill='tozeroy', mode='lines', line=dict(color='#FFEB00') ))
-                    fig.update_layout(
-                        title=f"Disk Usage In Last {output}",
-                        xaxis_title='Time', yaxis_title='Percentage Usage', height=300, margin=dict(l=0,  r=30, t=40, b=10  ))     
-                    st.plotly_chart(fig, use_container_width=True)  
+                    if not data.empty:
+                        for i in range(len(thresholds) - 1):
+                            fig.add_trace(go.Scatter(
+                                x=[vizData.index[0], vizData.index[-1], vizData.index[-1], vizData.index[0]],
+                                y=[thresholds[i], thresholds[i], thresholds[i + 1], thresholds[i + 1]],
+                                fill='toself',  # Fill the area
+                                fillcolor=colours[i],
+                                line=dict(color='rgba(255,255,255,0)'),  # Transparent line
+                            ))
+                        # Add the line plot after the filled areas
+                        fig.add_trace(go.Scatter(x=vizData.index, y=vizData['DiskUsage'], mode='lines', connectgaps=True, line=dict(color='blue', width=2)))
+                        fig.update_layout(
+                            showlegend=False,
+                            title={'text': f"Disk Usage In Last {output}", 'x': 0.3},
+                            yaxis=dict(range=[-10, 100]),  # Adjust Y-axis limits based on your thresholds
+                            xaxis_title = None, yaxis_title = None, height = 350, margin=dict(l=0,  r=0, t=40, b=10  ))
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        None
+                    
 
     filters()
 
@@ -619,45 +671,72 @@ with tab1:
                 pivotTable24hrs(st.session_state.metricTableValue)
   
             heatmapData1 = data[data['LogTimestamp'] >= calc.latestLog][['HostAndIP', 'DriveLetter', 'CPUUsage', 'DiskUsage', 'MemoryUsage']]
+            heatmapData1 = heatmapData1.groupby(['HostAndIP']).agg({
+                                                                    'CPUUsage': 'mean',
+                                                                    'DiskUsage': 'mean',
+                                                                    'MemoryUsage': 'mean',
+                                                                }).reset_index()
+            for i in heatmapData1.columns:
+                heatmapData1[i] = heatmapData1[i].replace(0, 1e-6)
+
+            # rename the hostandIP column for fitting into chart 
+            heatmapData1['HostAndIP_trunc'] = heatmapData1['HostAndIP'].apply(lambda x: x[:7]+'...' if len(x) > 7 else x)
             with col2:
                 col20, col21 = col2.columns([1, 1])
                 with col20:
-                    option1 = col20.selectbox('Metric Selector', ['CPUUsage', 'DiskUsage', 'MemoryUsage'], key='heatmap',  help="Displays a information of servers' resource consumption. Use the dropdown to select resource of interest", index = 0) 
+                    option1 = col20.selectbox('Metric Selector', ['CPUUsage', 'DiskUsage', 'MemoryUsage'], key='heatmap',  help="Displays a information of active servers' resource consumption. Use the dropdown to select resource of interest", index = 0) 
                 with col21:
                     option2 = col21.selectbox('Select prefered plot type', ['Heatmap', 'Barchart'], index = 0, help='Choose either barchart or heatmap to represent your information')
 
                 if option1 == 'CPUUsage':
-                    heatmapData1 = heatmapData1.groupby(['HostAndIP'])[['CPUUsage']].mean().reset_index()
+                    # heatmapData1 = heatmapData1.groupby(['HostAndIP'])[['CPUUsage']].mean().reset_index()
                     if option2 == 'Heatmap':             
-                        figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['CPUUsage'], color=heatmapData1['CPUUsage'], color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'CPUUsage': ':.2f',  'HostAndIP': True,   }, height = 400 )
+                        figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['CPUUsage'], color=heatmapData1['CPUUsage'], color_continuous_scale=[(0.0, "#00FF9C"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'CPUUsage': ':.2f',  'HostAndIP': True,   }, height = 400 )
                     else:
-                        figs = px.bar(data_frame=heatmapData1, x='HostAndIP', y='CPUUsage', color='CPUUsage', color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'CPUUsage': ':.2f',  'HostAndIP': True,   }, height = 400 )
+                        figs = px.bar(data_frame=heatmapData1, y='HostAndIP', x='CPUUsage', color='CPUUsage', text = 'CPUUsage', color_continuous_scale=[(0.0, "#00FF9C"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'CPUUsage': ':.2f',  'HostAndIP': True,   }, height = 400 )
                         figs.update_traces(textposition='inside')
+                        figs.update_layout(
+                            yaxis = dict(showgrid = False, showline = False),
+                            yaxis_title=None, xaxis_title = None,
+                            xaxis = dict(showgrid = True, showline = False, )
+                            )                        
 
                 elif option1 == 'DiskUsage':
-                    heatmapData1 = heatmapData1.groupby(['HostAndIP'])[['DiskUsage']].mean().reset_index()
+                    # heatmapData1 = heatmapData1.groupby(['HostAndIP'])[['DiskUsage']].mean().reset_index()
                     if option2 == 'Heatmap':
-                        figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['DiskUsage'], color=heatmapData1['DiskUsage'], color_continuous_scale=[ (0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100) , hover_data={ 'DiskUsage': ':.2f',  'HostAndIP': True }, height = 400)
+                        figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['DiskUsage'], color=heatmapData1['DiskUsage'], color_continuous_scale=[ (0.0, "#00FF9C"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100) , hover_data={ 'DiskUsage': ':.2f',  'HostAndIP': True }, height = 400)
                     else:
-                        figs = px.bar(data_frame=heatmapData1, x='HostAndIP', y='DiskUsage', color='DiskUsage', color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'DiskUsage': ':.2f',  'HostAndIP': True,   }, height = 400 ) 
+                        figs = px.bar(data_frame=heatmapData1, y='HostAndIP', x='DiskUsage', color='DiskUsage', text = 'DiskUsage', color_continuous_scale=[(0.0, "#00FF9C"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'DiskUsage': ':.2f',  'HostAndIP': True,   }, height = 400 ) 
                         figs.update_traces(textposition='inside')
+                        figs.update_layout(
+                            yaxis = dict(showgrid = False, showline = False),
+                            yaxis_title=None, xaxis_title = None,
+                            xaxis = dict(showgrid = True, showline = False, )
+                            )                        
 
                 elif option1 == 'MemoryUsage':
-                    heatmapData1 = heatmapData1.groupby(['HostAndIP'])[['MemoryUsage']].mean().reset_index()
+                    # heatmapData1 = heatmapData1.groupby(['HostAndIP'])[['MemoryUsage']].mean().reset_index()
                     if option2 == 'Heatmap':
-                        figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['MemoryUsage'], color=heatmapData1['MemoryUsage'], color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100) , hover_data={ 'MemoryUsage': ':.2f',  'HostAndIP': True}, height = 400)
+                        figs = px.treemap(data_frame=heatmapData1,path=['HostAndIP'], values = heatmapData1['MemoryUsage'], color=heatmapData1['MemoryUsage'], color_continuous_scale=[(0.0, "#00FF9C"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100) , hover_data={ 'MemoryUsage': ':.2f',  'HostAndIP': True}, height = 400)
                     else:
-                        figs = px.bar(data_frame=heatmapData1, x='HostAndIP', y='MemoryUsage', color='MemoryUsage', color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'MemoryUsage': ':.2f',  'HostAndIP': True,   }, height = 400 ) 
+                        figs = px.bar(data_frame=heatmapData1, y='HostAndIP', x='MemoryUsage', color='MemoryUsage', text = 'MemoryUsage', color_continuous_scale=[(0.0, "#00FF9C"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ], range_color=(0, 100), hover_data={ 'MemoryUsage': ':.2f',  'HostAndIP': True,   }, height = 400 ) 
                         figs.update_traces(textposition='inside')
+                        figs.update_layout(
+                            yaxis = dict(showgrid = False, showline = False),
+                            yaxis_title=None, xaxis_title = None,
+                            xaxis = dict(showgrid = True, showline = False, )
+                            )
+                        
 
-                figs.update_traces(
-                    hovertemplate="<b>Host and IP:</b> %{customdata[1]}<br>"
-                  "<b>Value:</b> %{color:.2f}%<extra></extra>")
+                # figs.update_traces(
+                #     hovertemplate="<b>Host and IP:</b> %{customdata[1]}<br>"
+                #   "<b>Value:</b> %{color:.2f}%<extra></extra>")
                 figs.update_layout(
                     showlegend=False,
                     margin=dict(l=0, r=0, t=0, b=0),  # Remove margins
                     uniformtext=dict(minsize=10, mode='hide'),  # Manage text size and visibility
                 )
+                figs.update(layout_coloraxis_showscale=False)  # hiding color-bar 
                 col2.plotly_chart(figs, use_container_width=True)
     miniHeatMap()
 
@@ -666,7 +745,11 @@ with tab1:
 
     @st.fragment
     def heatMap():    
-        dataWtihLastValues = (data.sort_values(by='LogTimestamp').groupby('HostAndIP', as_index=False).last())        
+        dataWtihLastValues = (data.sort_values(by='LogTimestamp').groupby('HostAndIP', as_index=False).last())  
+        for i in dataWtihLastValues:
+            if dataWtihLastValues[i].dtypes != 'O':
+                dataWtihLastValues[i] = dataWtihLastValues[i].replace(0, 1e-6)
+
         with stylable_container(
                     key="visual_container40",
                     css_styles="""{
@@ -706,7 +789,7 @@ with tab1:
                             path=['ManagementZone', 'HostAndIP'],  
                             values=dataWtihLastValues['DiskUsage'],  
                             color=dataWtihLastValues['DiskUsage'],  
-                            color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ],  # Gradient: red -> yellow -> green
+                            color_continuous_scale=[(0.0, "#00FF9C"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ],  # Gradient: red -> yellow -> green
                             range_color=(0, 100),  # Dynamic color range
                             hover_data={'DiskUsage': ':.2f', 'HostAndIP': True}, 
                             height=400)
@@ -716,7 +799,7 @@ with tab1:
                                         "<b>Percentage UsedSpace:</b> %{color:.2f}<extra></extra>")
                         figs.update_layout(
                             margin=dict(l=0, r=0, t=0, b=0),
-                            uniformtext=dict(minsize=10, mode='hide'), )
+                            uniformtext=dict(minsize=13, mode='hide'), )
                         st.plotly_chart(figs, use_container_width=True)      
                 elif treeSel == 'Application Resource Consumption':
                         figs = px.treemap(
@@ -724,17 +807,17 @@ with tab1:
                             path=['ApplicationName', 'HostAndIP'],  
                             values=dataWtihLastValues['CPUUsage'],  
                             color=dataWtihLastValues['CPUUsage'],  
-                            color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ],  # Gradient: red -> yellow -> green
+                            color_continuous_scale=[(0.0, "#00FF9C"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ],  # Gradient: red -> yellow -> green
                             range_color=(0, 100),  # Dynamic color range
                             hover_data={'CPUUsage': ':.2f', 'HostAndIP': True}, 
                             height=400)
                         figs.update_traces(
-                            hovertemplate=
+                            hovertemplate= 
                                         "<b>Host and IP:</b> %{customdata[1]}<br>"
                                         "<b>Percentage CPUusage:</b> %{color:.2f}<extra></extra>")
                         figs.update_layout(
                             margin=dict(l=0, r=0, t=0, b=0),
-                            uniformtext=dict(minsize=10, mode='hide'), )
+                            uniformtext=dict(minsize=13, mode='hide'))
                         st.plotly_chart(figs, use_container_width=True)                            
                 elif treeSel == 'Network Traffic':
                         dataWtihLastValues['NetworkTrafficAggregate'] = dataWtihLastValues['NetworkTrafficAggregate'].replace(0, 1e-6)
@@ -743,7 +826,7 @@ with tab1:
                             path=['ApplicationName', 'HostAndIP'],  
                             values=dataWtihLastValues['NetworkTrafficAggregate'], 
                             color=dataWtihLastValues['NetworkTrafficAggregate'], 
-                            color_continuous_scale=[(0.0, "#16C47F"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ],  # Gradient: red -> yellow -> green
+                            color_continuous_scale=[(0.0, "#00FF9C"), (0.7, "#FFF574"),(0.85, "#F93827"), (1.0, "#F93827") ],  # Gradient: red -> yellow -> green
                             range_color=(0, max(dataWtihLastValues['NetworkTrafficAggregate'])), 
                             hover_data={'NetworkTrafficAggregate': ':.2f', 'HostAndIP': True}, 
                             height=400)
@@ -753,7 +836,7 @@ with tab1:
                                         "<b>Net Traffic Agg:</b> %{color:.2f}<extra></extra>")
                         figs.update_layout(
                             margin=dict(l=0, r=0, t=0, b=0),
-                            uniformtext=dict(minsize=10, mode='hide'), )
+                            uniformtext=dict(minsize=13, mode='hide'), )
                         st.plotly_chart(figs, use_container_width=True)   
 
     heatMap()
@@ -773,11 +856,11 @@ with tab1:
             usageData.groupby('HostAndIP')['ActiveHour']
             .nunique()
             .reset_index()
-            .rename(columns={'ActiveHour': 'ActiveTimeHours'})
+            .rename(columns={'ActiveHour': 'HoursActive'})
         )
-        active_hours['Service Uptime (%)'] = round((active_hours['ActiveTimeHours'] / total_timeframe_hours) * 100, 2)
+        active_hours['ServerUptime(%)'] = round((active_hours['HoursActive'] / total_timeframe_hours) * 100, 2)
         active_hours.set_index('HostAndIP', inplace = True)
-        active_hours.sort_values(by ='Service Uptime (%)', ascending=False, inplace=True)
+        active_hours.sort_values(by ='ServerUptime(%)', ascending=False, inplace=True)
         return active_hours
         
 
@@ -796,7 +879,7 @@ with tab1:
             with st.container(border = False):
                 st.markdown(f"""
                     <div class="container metrics text-center" style="margin-top: 1px; height:68px;margin-bottom: 10px">
-                    <p style="font-size: 18px; font-weight: bold; text-align: center; margin-top: 10px">Overview of Resource Availability and Service Uptime Within the Selected Timeframe</p>
+                    <p style="font-size: 18px; font-weight: bold; text-align: center; margin-top: 10px">Overview of Resource Availability and Server Uptime Within the Selected Timeframe</p>
                     </div>
                     </div> """, unsafe_allow_html= True)
                             
@@ -839,35 +922,38 @@ with tab1:
                     col2.dataframe(serviceUptime().style.background_gradient(cmap='Blues', axis=0), use_container_width=True)
                 with col3:
                     serviceData= serviceUptime()
-                    serviceData.sort_values(by ='Service Uptime (%)', ascending=True, inplace=True)
+                    serviceData.sort_values(by ='ServerUptime(%)', ascending=True, inplace=True)
                     serviceData.reset_index(inplace = True)
-                    figs = px.bar(data_frame=serviceData, y='HostAndIP', x='Service Uptime (%)', color='Service Uptime (%)', color_continuous_scale= color_continuous_scales, range_color=(0, 100), hover_data={ 'Service Uptime (%)': ':.2f',  'HostAndIP': True,   }, height = 400, title = 'Service Uptime' )   
-                    figs.update_traces(textposition='inside', texttemplate="%{x}", )
+                    serviceData['HostAndIP_trunc'] = serviceData['HostAndIP'].apply(lambda x: x[:14]+'...' if len(x) > 7 else x)
+
+                    figs = px.bar(data_frame=serviceData, y='HostAndIP', x='ServerUptime(%)', text = 'ServerUptime(%)', color='ServerUptime(%)', color_continuous_scale= color_continuous_scales, range_color=(0, 100), hover_data={ 'ServerUptime(%)': ':.2f',  'HostAndIP': True,   }, height = 400, title = 'Server Uptime' )   
+                    figs.update_traces(textposition='inside' )
                     figs.update_layout(
                         xaxis=dict(
-                            title="Service Uptime (%)",
+                            title="ServerUptime(%)",
                             showgrid=True,
-                            showline=True,
+                            showline=False,
                         ),
                         yaxis=dict(
-                            title="Host and IP",
-                            tickmode="array",
-                            tickvals=serviceData['HostAndIP'],  # List all servers
+                            # title="Host and IP",
+                            # tickmode="array",
+                            # tickvals=serviceData['HostAndIP'],  # List all servers
                             showgrid=False,
-                            showline=True,
-                            automargin=True,
-                            fixedrange=True,  # Allow scrolling
-                            showticklabels=False
+                            showline=False,
+                            # automargin=True,
+                            # fixedrange=True,  # Allow scrolling
+                            # showticklabels=False
                         ),
+                        yaxis_title=None, xaxis_title = None,
                         # barmode="group",
                         # yaxis=dict(showticklabels=False),  # Hide y-axis tick labels
                         margin=dict(l=0, r=0, t=40, b=0),  # Remove margins
-                        # uniformtext=dict(minsize=10)  # Adjust text visibility
+                        uniformtext=dict(minsize=10)  # Adjust text visibility
                     )   
-                    figs.update_yaxes(
-                        fixedrange=False,  # Allow scrolling
-                        showticklabels=True,  # Show tick labels
-                    )            
+                    # figs.update_yaxes(
+                    #     fixedrange=False,  # Allow scrolling
+                    #     showticklabels=True,  # Show tick labels
+                    # )            
                     figs.update(layout_coloraxis_showscale=False)  # hiding color-bar 
                     col3.plotly_chart(figs, use_container_width=True)                    
 

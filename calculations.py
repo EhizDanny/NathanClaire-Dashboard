@@ -93,12 +93,12 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 import atexit
 
-def importData() -> pd.DataFrame:
-    """
-    Returns:
-        pd.DataFrame: [pandas dataframe of the imported table from db]
-    """    
-    return pd.read_parquet('infraParq.parquet', engine = 'fastparquet')
+# def importData() -> pd.DataFrame:
+#     """
+#     Returns:
+#         pd.DataFrame: [pandas dataframe of the imported table from db]
+#     """    
+#     return pd.read_parquet('infraParq.parquet', engine = 'fastparquet')
 
 # data = importData()
 
@@ -142,18 +142,18 @@ class InfraCalculate:
         self.cpuUsage = self.df['CPUUsage'].mean()
         self.avDiskUsage = self.df['DiskUsage'].mean()
         self.avMemoryUsage = self.df['MemoryUsage'].mean()
-        self.currentCPU = sum(self.df[self.df['LogTimestamp'] >= self.latestLog]['CPUUsage'])
-        self.currentDisk = sum(self.df[self.df['LogTimestamp'] >= self.latestLog]['DiskUsage'])
-        self.currentMemory = sum(self.df[self.df['LogTimestamp'] >= self.latestLog]['MemoryUsage'])
-        self.currentDiskAvail = sum(self.df[self.df['LogTimestamp'] >= self.latestLog]['TotalFreeDiskGB'])
+        self.currentCPU = self.df[self.df['LogTimestamp'] >= self.latestLog]['CPUUsage'].mean()
+        self.currentDisk = self.df[self.df['LogTimestamp'] >= self.latestLog]['DiskUsage'].mean()
+        self.currentMemory = self.df[self.df['LogTimestamp'] >= self.latestLog]['MemoryUsage'].mean()
+        self.currentDiskAvail = self.df[self.df['LogTimestamp'] >= self.latestLog]['TotalFreeDiskGB'].mean()
         self.currentDiskSpace = sum(self.df[self.df['LogTimestamp'] >= self.latestLog]['TotalDiskSpaceGB'])
-        self.currentNetworkTrafficAgg = sum(self.df[self.df['LogTimestamp'] >= self.latestLog]['NetworkTrafficAggregate'])
-        self.currentNetworkTrafficRec = sum(self.df[self.df['LogTimestamp'] >= self.latestLog]['NetworkTrafficReceived'])
-        self.currentNetworkTrafficSent = sum(self.df[self.df['LogTimestamp'] >= self.latestLog]['NetworkTrafficSent'])
+        self.currentNetworkTrafficAgg = self.df[self.df['LogTimestamp'] >= self.latestLog][['NetworkTrafficAggregate']]
+        self.currentNetworkTrafficRec = self.df[self.df['LogTimestamp'] >= self.latestLog][['NetworkTrafficReceived']]
+        self.currentNetworkTrafficSent = self.df[self.df['LogTimestamp'] >= self.latestLog][['NetworkTrafficSent']]
         self.currentFreeDisk = sum(self.df[self.df['LogTimestamp'] >= self.latestLog]['TotalFreeDiskGB'])
-        self.currentTotalDisk = sum(self.df[self.df['LogTimestamp'] >= self.latestLog]['TotalDiskSpaceGB'])
-        self.currentTotalMemory = sum(self.df[self.df['LogTimestamp'] >= self.latestLog]['TotalMemory'])
-        self.df['HostAndIP'] =  self.df['Hostname'] + self.df['IPAddress'].str.replace('"', '')
+        self.currentTotalDisk = self.df[self.df['LogTimestamp'] >= self.latestLog]['TotalDiskSpaceGB'].mean()
+        self.currentTotalMemory = self.df[self.df['LogTimestamp'] >= self.latestLog]['TotalMemory'].mean()
+        self.df['HostAndIP'] =  self.df['Hostname'] + ' ' + self.df['IPAddress'].str.replace('"', '')
         self.servers = self.df.HostAndIP.unique().tolist()
         self.totalServer = self.df.HostAndIP.nunique()
         self.highCPUUsageCount = self.highMetric('CPUUsage')
@@ -177,3 +177,9 @@ class InfraCalculate:
         # temporal['lastVar'] = pd.Series(lastNoneBlank)
         # return len(temporal[temporal.lastVar > 85])
         return self.df[(self.df['LogTimestamp'] >= self.df['LogTimestamp'].max()) & (self.df[variable] > 85)]['HostAndIP'].nunique()
+
+
+
+
+
+    

@@ -100,9 +100,9 @@ def importData() -> pd.DataFrame:
     """    
     return pd.read_parquet('infraParq.parquet', engine = 'fastparquet')
 
-data = importData()
+# data = importData()
 
-latestTime = data['LogTimestamp'].max()
+# latestTime = data['LogTimestamp'].max()
 
 @dataclass()
 class InfraCalculate:
@@ -169,10 +169,11 @@ class InfraCalculate:
         Returns:
             int: [returns the number of servers that has its metric usage exceeded the 85% threshold]
         """        
-        temporal = self.df.groupby('HostAndIP')[['LogTimestamp']].max().reset_index()
-        lastNoneBlank = []
-        for i in temporal.index:
-            lastNoneBlank.append(self.df[(self.df.HostAndIP == temporal.iloc[i]['HostAndIP']) \
-                                     & (self.df.LogTimestamp == temporal.iloc[i]['LogTimestamp'])][variable].values[0])
-        temporal['lastVar'] = pd.Series(lastNoneBlank)
-        return len(temporal[temporal.lastVar > 85])
+        # temporal = self.df.groupby('HostAndIP')[['LogTimestamp']].max().reset_index()
+        # lastNoneBlank = []
+        # for i in temporal.index:
+        #     lastNoneBlank.append(self.df[(self.df.HostAndIP == temporal.iloc[i]['HostAndIP']) \
+        #                              & (self.df.LogTimestamp == temporal.iloc[i]['LogTimestamp'])][variable].values[0])
+        # temporal['lastVar'] = pd.Series(lastNoneBlank)
+        # return len(temporal[temporal.lastVar > 85])
+        return self.df[(self.df['LogTimestamp'] >= self.df['LogTimestamp'].max()) & (self.df[variable] > 85)]['HostAndIP'].nunique()

@@ -8,7 +8,10 @@ st.set_page_config(
 )
 import datetime
 from datetime import datetime, timedelta
+import threading
 import time
+import schedule
+import queue
 
 # @st.cache_resource
 def importLibraries():
@@ -30,6 +33,19 @@ def importLibraries():
     return go, daq, px, sqlite3, pathlib, html, antd, pd, np,  json, warnings, inf, shad
 
 go, daq, px, sqlite3, pathlib, html, antd, pd, np, json, warnings, inf, shad = importLibraries()
+
+# import full data on a seperate thread 
+def fetch_data(output_queue):  
+    conn = sqlite3.connect('EdgeDb 2')  
+    query = "SELECT * FROM Infra_Utilization;"  
+    dataset = pd.read_sql_query(query, conn)  
+    conn.close()  # Make sure to close the connection  
+    output_queue.put(dataset)  # Put the dataset into the queue  
+
+data_queue = queue.Queue()  # Create a queue to hold the dataset  
+data_thread = threading.Thread(target=fetch_data, args=(data_queue,))  # Create a thread to run the fetch_data function   
+data_thread.start()  # Start the thread 
+fullData = data_queue.get() # Get the dataset from the queue
 
 # Config Variables 
 @st.cache_resource()
@@ -61,10 +77,12 @@ load_css(css_path)
 #load data
 # Get a start and stop filter date and time for first time loading. Update this date later to tally with users selected date
 if 'stopDate' not in st.session_state:
-    st.session_state['stopDate'] = datetime.today().date().strftime("%Y-%m-%d")
+    # st.session_state['stopDate'] = datetime.today().date().strftime("%Y-%m-%d")
+    st.session_state['stopDate'] = fullData.LogTimestamp.max()
     st.session_state['usageMonitor'] = 0  # monitor the number of times the has been ran.
 if 'startDate' not in st.session_state:
-    st.session_state['startDate'] = (datetime.today().date() -timedelta(days=51)).strftime("%Y-%m-%d")
+    # st.session_state['startDate'] = (datetime.today().date() -timedelta(days=51)).strftime("%Y-%m-%d")
+    st.session_state['startDate'] = fullData.LogTimestamp.min()
 if 'startTime' not in st.session_state:
     st.session_state['startTime'] = datetime.today().time().strftime("%H:%M:%S")
 if 'stopTime' not in st.session_state:
@@ -89,7 +107,6 @@ def liveDataHandler(db_path, table_name, start_date, stop_date, autoChanger):
     Returns:
         pd.DataFrame: The loaded dataset.
     """
-    autoChanger
     conn = sqlite3.connect(db_path)
     query = f"""
     SELECT * FROM '{table_name}' 
@@ -102,6 +119,7 @@ def liveDataHandler(db_path, table_name, start_date, stop_date, autoChanger):
     return dataset
 
 data = liveDataHandler('EdgeDB 2', 'Infra_Utilization', st.session_state['startDate'], st.session_state['stopDate'],  st.session_state['autoDataRefreshHelper'])
+
 data['HostAndIP'] = data['Hostname'] + data['IPAddress'].str.replace('"', '')
 
 if not data.empty:
@@ -117,34 +135,6 @@ color_continuous_scales = [
                         (0.85, "#00FF9C"), # Green starts at 85
                         (1.0, "#00FF9C")   # Green continues until 100
                     ]
-
-# def emptinessDataCheck():
-#     if not data.empty:
-#         st.session_state["data_empty"] = False
-#     else:
-#         st.session_state["data_empty"] = True
-    
-#     if st.session_state["data_empty"] == True: # Alert dialog if data is empty
-#         dialog_result = shad.alert_dialog(
-#             title="No Data Alert",
-#             description="There is currently no data within your selected timeframe. Click refresh to have the minimum date range with data loaded.",
-#             confirm_label="Refresh",
-#             cancel_label="Cancel",
-#             key="alert_dialog_1",
-#             show=st.session_state["data_empty"]
-#         )
-#         if dialog_result == "cancel":
-#             st.session_state["data_empty"] = False  # Keep the alert visible if no data   
-#         elif dialog_result == "refresh":
-#             st.session_state["data_empty"] = False
-#             st.session_state['startDate'] = (datetime.today().date() -timedelta(days=51)).strftime("%Y-%m-%d")
-#             st.session_state['stopDate'] = datetime.today().date().strftime("%Y-%m-%d")
-#     if not st.session_state["data_empty"]:
-#         # Display the dashboard once the alert has been addressed
-#         st.success("Dashboard is loading...")
-#         # Add your dashboard rendering logic here
-#         st.write("Your dashboard goes here!")
-# emptinessDataCheck()
 
 
 # save the data in session_state and keep track of the selected server whose information is to be displayed
@@ -173,7 +163,8 @@ def updateDateAndTime():
     st.session_state['autoDataRefreshHelper'] += 1
 
 
-st.sidebar.write(len(data))
+
+
 end_time = time.time()
 dataloading_time = end_time - start_time
 
@@ -188,7 +179,6 @@ with head2:
     </div>""", unsafe_allow_html=True)
 
 
-st.sidebar.image('PNG/Red.png')
 # antd.divider(label='HOME', icon='house', align='center', color='gray')
 
 tab1, tab2 = st.tabs(["📈 Infrastructure Metrics", "🗃 Server Metrics"])
@@ -210,9 +200,9 @@ with tab1:
         controlDates = col6.date_input(
             "Preferred Date Range",
             # (pd.to_datetime(data.LogTimestamp).max() - timedelta(weeks=8), pd.to_datetime(data.LogTimestamp).max()),
-            value=(st.session_state['startDate'], st.session_state['stopDate']),
+            value=(st.session_state['startDate'], st.session_state['stopDate']), min_value=fullData.LogTimestamp.min(), max_value=fullData.LogTimestamp.max(),
             format="YYYY-MM-DD", 
-            help='Select Start and Stop Date. If you select only start date, the app automatically selects the nextday as the stop date. Endeavour to select the start and stop dates to ensure your intended range is depicted correctly',
+            help=f'Select Start and Stop Date. If you select only start date, the app automatically selects the nextday as the stop date. Endeavour to select the start and stop dates to ensure your intended range is depicted correctly',
             on_change=updateDateAndTime, key = 'datech') 
 
         starttime = col7.time_input('Start Time', step = 300, help = 'Specify the start time for your selected date range. This time indicates when the data extraction or analysis should begin on the start date', key = 'strTime', on_change=updateDateAndTime)
@@ -220,7 +210,6 @@ with tab1:
 
 
 
-    st.sidebar.write(len(st.session_state['data']))   
     @st.fragment
     def filters():
         #  -------------------------------------------------- Filters Container --------------------------------------------------
@@ -498,6 +487,7 @@ with tab1:
         #                 padding: 5px 10px;
         #                 margin-top: -10px;
         #             }"""):
+        
         if len(st.session_state['startDate']) == 10 or len(st.session_state['stopDate']) == 10:
             date1 = datetime.strptime(st.session_state['startDate']+' 00:00:00', "%Y-%m-%d %H:%M:%S")
             date2 = datetime.strptime(st.session_state['stopDate']+' 00:00:00', "%Y-%m-%d %H:%M:%S")
@@ -513,7 +503,35 @@ with tab1:
             output = f"{days} days"
         else:
             output = f"{hours} hours"
-        
+
+        # if isinstance(st.session_state['startDate'], pd.Timestamp) and isinstance(st.session_state['stopDate'], pd.Timestamp):  
+        #     # Convert Timestamps to strings  
+        #     start_date_str = st.session_state['startDate'].strftime('%Y-%m-%d')  
+        #     stop_date_str = st.session_state['stopDate'].strftime('%Y-%m-%d')  
+            
+        #     # Now you can check the length of the formatted strings  
+        #     if len(start_date_str) == 10 and len(stop_date_str) == 10:   
+        #         # Create datetime objects directly from the Timestamps  
+        #         date1 = st.session_state['startDate'].to_pydatetime()  # Convert to Python datetime  
+        #         date2 = st.session_state['stopDate'].to_pydatetime()    # Convert to Python datetime  
+        #     else:  
+        #         # This else block may not be needed if you're only working with Timestamps  
+        #         date1 = datetime.strptime(start_date_str, "%Y-%m-%d")  # Use the string representation  
+        #         date2 = datetime.strptime(stop_date_str, "%Y-%m-%d")    # Use the string representation  
+
+        #     # Calculate the difference  
+        #     difference = date2 - date1  
+        #     days = difference.days  
+        #     hours = difference.seconds // 3600  
+
+        #     # Prepare the output based on the difference  
+        #     if days > 0 and hours > 0:  
+        #         output = f"{days} days and {hours} hours"  
+        #     elif days > 0 and hours == 0:  
+        #         output = f"{days} days"  
+        #     else:  
+        #         output = f"{hours} hours"  
+            
 
         col1, col2, col3 = st.columns([1,1,1], border = False)
         # Define thresholds and colors
@@ -959,12 +977,25 @@ with tab1:
 
     displayAndHostAvailability()
 
-    st.session_state['usageMonitor'] += 1
+
+
+@st.dialog('Empty Data Alert', width ='small')
+def emptinessDataCheck():
+    st.session_state["data_empty"] = True
+    st.write('No data available. Your start date will be set to the earliest available date on your data')
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.write('The earliest date')
+    # st.rerun()
+        
+if data.empty:
+    emptinessDataCheck()
+
+st.session_state['usageMonitor'] += 1
 st.session_state['usageMonitor'] += 1
 end_time = time.time()
 uiloading_time = end_time - start_time
-st.sidebar.markdown(f"App UI and Analysis loaded in {uiloading_time:.2f} seconds.")
-st.sidebar.markdown(f"Data Connection and Refresh loaded in {dataloading_time:.2f} seconds.")
+# st.sidebar.markdown(f"App UI and Analysis loaded in {uiloading_time:.2f} seconds.")
+# st.sidebar.markdown(f"Data Connection and Refresh loaded in {dataloading_time:.2f} seconds.")
 
 
 #         with col1:

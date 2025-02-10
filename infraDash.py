@@ -2,7 +2,7 @@ import streamlit as st
 from streamlit_extras.stylable_container import stylable_container
 from streamlit_option_menu import option_menu
 st.set_page_config(
-    page_title = 'AppMonitor', 
+    page_title = 'InfraObservatory', 
     page_icon = ':bar_chart:',
     layout = 'wide'
 )
@@ -12,8 +12,9 @@ import threading
 import time
 import schedule
 import queue
-
-# @st.cache_resource
+import os
+import subprocess
+@st.cache_resource
 def importLibraries():
     import plotly.express as px
     import plotly.graph_objects as go
@@ -28,24 +29,36 @@ def importLibraries():
     import warnings 
     warnings.filterwarnings('ignore')
     from calculations import InfraCalculate as inf 
-    import dash_daq as daq
+    # import dash_daq as daq
     # from connection import connectClientDB, fetchFromClientDB, saveToSQLite, get_last_update_time
-    return go, daq, px, sqlite3, pathlib, html, antd, pd, np,  json, warnings, inf, shad
+    return go,  px, sqlite3, pathlib, html, antd, pd, np,  json, warnings, inf, shad
 
-go, daq, px, sqlite3, pathlib, html, antd, pd, np, json, warnings, inf, shad = importLibraries()
+go, px, sqlite3, pathlib, html, antd, pd, np, json, warnings, inf, shad = importLibraries()
 
 # import full data on a seperate thread 
-def fetch_data(output_queue):  
-    conn = sqlite3.connect('EdgeDb 2')  
-    query = "SELECT * FROM Infra_Utilization;"  
-    dataset = pd.read_sql_query(query, conn)  
-    conn.close()  # Make sure to close the connection  
-    output_queue.put(dataset)  # Put the dataset into the queue  
+# @st.cache_data
+# def fetch_data(output_queue, incrementor):  
+#     conn = sqlite3.connect('EdgeDB')  
+#     query = "SELECT * FROM Infra_Utilization;"  
+#     dataset = pd.read_sql_query(query, conn)  
+#     conn.close()  # Make sure to close the connection  
+#     output_queue.put(dataset)  # Put the dataset into the queue  
 
-data_queue = queue.Queue()  # Create a queue to hold the dataset  
-data_thread = threading.Thread(target=fetch_data, args=(data_queue,))  # Create a thread to run the fetch_data function   
-data_thread.start()  # Start the thread 
-fullData = data_queue.get() # Get the dataset from the queue
+# create an incrementor that enables fetch_data cache to reload to update the data in the queue
+# used the number of rows in the refreshLogs table. If the logs increased, then cache reloads
+# cons = sqlite3.connect('EdgeDB')
+# querys = "SELECT COUNT(*) FROM RefreshLogs;"
+# reloadNumber = cons.execute(querys)
+# reloadNumber = reloadNumber.fetchone()[0]
+
+# # Use a queue to fetch full data in the background
+# data_queue = queue.Queue()
+# data_thread = threading.Thread(target=fetch_data, args=(data_queue, reloadNumber,), daemon=True)
+# data_thread.start()
+
+# # Provide a non-blocking way to check if data is available
+# if not data_queue.empty():
+#     full_data = data_queue.get_nowait()  # Get without blocking
 
 # Config Variables 
 @st.cache_resource()
@@ -61,64 +74,107 @@ clientDBPass = configVar['client_db_password']
 client_table_name = configVar['client_table_name']
 
 # import bootstrap 
-@st.cache_resource()
-def css_cdn():
-    return  st.markdown('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">', unsafe_allow_html=True)
+# @st.cache_resource()
+# def css_cdn():
+#     return  st.markdown('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">', unsafe_allow_html=True)
 # css_cdn()
 
 #Load css file
-@st.cache_resource()
+# @st.cache_resource()
 def load_css(filePath:str):
     with open(filePath) as f:
         st.html(f'<style>{f.read()}</style>')
 css_path = pathlib.Path('style.css')
 load_css(css_path)
 
-#load data
-# Get a start and stop filter date and time for first time loading. Update this date later to tally with users selected date
-if 'stopDate' not in st.session_state:
-    # st.session_state['stopDate'] = datetime.today().date().strftime("%Y-%m-%d")
-    st.session_state['stopDate'] = fullData.LogTimestamp.max()
-    st.session_state['usageMonitor'] = 0  # monitor the number of times the has been ran.
-if 'startDate' not in st.session_state:
-    # st.session_state['startDate'] = (datetime.today().date() -timedelta(days=51)).strftime("%Y-%m-%d")
-    st.session_state['startDate'] = fullData.LogTimestamp.min()
-if 'startTime' not in st.session_state:
-    st.session_state['startTime'] = datetime.today().time().strftime("%H:%M:%S")
-if 'stopTime' not in st.session_state:
-    st.session_state['stopTime'] = datetime.today().time().strftime("%H:%M:%S")
+
+# Function to run dataRefresh.py
+def run_data_refresh():
+    subprocess.run(["python", "dataRefresh.py"])
+# Start the data refresh in a separate thread
+refresh_thread = threading.Thread(target=run_data_refresh, daemon=True)
+refresh_thread.start()
+
+# Collect max date from the database
+conn = sqlite3.connect('EdgeDB')
+query = 'select max(LogTimestamp) from Infra_Utilization;'
+cursor = conn.execute(query)
+maxdate = cursor.fetchone()[0]
+
 if 'autoDataRefreshHelper' not in st.session_state:
     st.session_state['autoDataRefreshHelper'] = 0
 if 'latestLog' not in st.session_state:
     st.session_state['latestlog'] = datetime.now()
 
+if 'stopDate' not in st.session_state:
+    st.session_state['stopDate'] = maxdate[:10]
+    st.session_state['usageMonitor'] = 0  # monitor the number of times the has been ran.
 
-start_time = time.time()
+if 'startDate' not in st.session_state:
+    st.session_state['startDate'] = (datetime.strptime(maxdate[:10], '%Y-%m-%d') - timedelta(days=1)).strftime('%Y-%m-%d') #this code converts to dateobject, deducts one day, and converts back to string
 
-@st.cache_data
-def liveDataHandler(db_path, table_name, start_date, stop_date, autoChanger):
-    """
-    Load data from the database and save it to a Parquet file.
-    Args:
-        db_path (str): Path to the SQLite database.
-        table_name (str): Table name to query.
-        start_date (str): Start date for filtering data.
-        stop_date (str): Stop date for filtering data.
-    Returns:
-        pd.DataFrame: The loaded dataset.
-    """
-    conn = sqlite3.connect(db_path)
-    query = f"""
-    SELECT * FROM '{table_name}' 
-    WHERE LogTimestamp BETWEEN '{start_date}' AND '{stop_date}';
-    """
-    dataset = pd.read_sql_query(query, conn)
-    dataset.to_parquet('workingData.parquet', engine='fastparquet', index=False)
-    conn.close()
-    dataset = pd.read_parquet('workingData.parquet', engine='fastparquet')
-    return dataset
 
-data = liveDataHandler('EdgeDB 2', 'Infra_Utilization', st.session_state['startDate'], st.session_state['stopDate'],  st.session_state['autoDataRefreshHelper'])
+if 'startTime' not in st.session_state:
+    # start_date_data = data[pd.to_datetime(data['LogTimestamp']) == pd.to_datetime(st.session_state['startDate']).date()]
+    # if not start_date_data.empty:
+    #     st.session_state['startTime'] = start_date_data['LogTimestamp'].min().time().strftime("%H:%M:%S")
+    # else:
+    #     st.session_state['startTime'] = "00:00:00"
+    st.session_state['startTime'] = "00:00:00"
+
+if 'stopTime' not in st.session_state:
+    # stop_date_data = data[pd.to_datetime(data['LogTimestamp']) == pd.to_datetime(st.session_state['stopDate']).date()]
+    # if not stop_date_data.empty:
+    #     st.session_state['stopTime'] = stop_date_data['LogTimestamp'].max().time().strftime("%H:%M:%S")
+    # else:
+    #     st.session_state['stopTime'] = "23:59:59"
+    st.session_state['stopTime'] = "23:59:59"
+
+# Addd an extra day to the stop for the purpose of filterinh dataframe upper bound
+if len(st.session_state.stopDate) == 10:
+    stop_date = datetime.strptime(st.session_state['stopDate'], "%Y-%m-%d")
+    new_stop_date = (stop_date + timedelta(days=1)).strftime("%Y-%m-%d")
+else:
+    new_stop_date = st.session_state['stopDate'] #+  timedelta(days=1).strftime("%Y-%m-%d %H:%M:%S")
+
+if os.path.isfile('workingData.parquet') and os.path.getsize('workingData.parquet') > 0:
+    fullData = pd.read_parquet('workingData.parquet', engine='fastparquet')
+    data = fullData[(fullData.LogTimestamp >= st.session_state.startDate) & (fullData.LogTimestamp <= new_stop_date)]
+else:
+    st.error('Pls wait for data to load')
+    data = pd.DataFrame()
+    # conn = sqlite3.connect('EdgeDB')
+    # query = "select * from Infra_Utilization where LogTimestamp >= '{st.session_state.startDate}' and LogTimestamp <= '{st.session_state.stopDate}';" 
+    # data = pd.read_sql_query(query, conn)
+
+
+
+
+#load data
+# @st.cache_data
+# def liveDataHandler(db_path, table_name, start_date, stop_date, autoChanger):
+#     """
+#     Load data from the database and save it to a Parquet file.
+#     Args:
+#         db_path (str): Path to the SQLite database.
+#         table_name (str): Table name to query.
+#         start_date (str): Start date for filtering data.
+#         stop_date (str): Stop date for filtering data.
+#     Returns:
+#         pd.DataFrame: The loaded dataset.
+#     """
+#     conn = sqlite3.connect(db_path)
+#     query = f"""
+#     SELECT * FROM '{table_name}' 
+#     WHERE LogTimestamp >= '{start_date}' AND  LogTimestamp <= '{stop_date}';
+#     """
+#     dataset = pd.read_sql_query(query, conn)
+#     # dataset.to_parquet('workingData.parquet', engine='fastparquet', index=False)
+#     # conn.close()
+#     # dataset = pd.read_parquet('workingData.parquet', engine='fastparquet')
+#     return dataset
+
+# data = liveDataHandler('EdgeDB', 'Infra_Utilization', st.session_state['startDate'], st.session_state['stopDate'],  st.session_state['autoDataRefreshHelper'])
 
 data['HostAndIP'] = data['Hostname'] + data['IPAddress'].str.replace('"', '')
 
@@ -163,19 +219,13 @@ def updateDateAndTime():
     st.session_state['autoDataRefreshHelper'] += 1
 
 
-
-
-end_time = time.time()
-dataloading_time = end_time - start_time
-
-start_time = time.time()
-
+            ###################### ########### ########### ########### 
 # Navigation Bar Top 
-head1, head2, head3 = st.columns([1, 2, 1])
+head1, head2, head3 = st.columns([1, 4, 1])
 with head2:
     head2.markdown(f"""
     <div class="heading">
-            <p style="margin-top: 10px; font-size: 17px; font-weight: bold; color: #333; text-align: center; font-family: Geneva, Verdana, helvetica, sans-serif">Infrastructure Monitoring System</p>
+            <p style=" font-size: 2.7rem; font-weight: bold; color: white; text-align: center; font-family: "Source Sans Pro", sans-serif">Infrastructure Monitoring System</p>
     </div>""", unsafe_allow_html=True)
 
 
@@ -188,15 +238,14 @@ with tab1:
     with containerOne:
         col1, col2, col3, col4, col5, col6, col7, col8 = containerOne.columns([3, 0.6, 0.6, 0.6, 1, 1, 0.6, 0.6])
         with col2:
-            st.error(f"CPU: {calc.highCPUUsageCount}")
+            st.warning(f"CPU: {calc.highCPUUsageCount}")
             # shad.badges([(f"CPU {calc.highCPUUsageCount}", "destructive")], class_name="flex gap-2",)
         with col3:
-            st.error(f"Mem: {calc.highMemUsageCount}")
+            st.warning(f"Mem: {calc.highMemUsageCount}")
             # shad.badges([(f"Mem {calc.highMemUsageCount}", "destructive")], class_name="flex gap-2",)
         with col4:
-            st.error(f"Disk: {calc.highDiskUsageCount}")
+            st.warning(f"Disk: {calc.highDiskUsageCount}")
             # shad.badges([(f"Disk {calc.highDiskUsageCount}", "destructive")], class_name="flex gap-2",)
-
         controlDates = col6.date_input(
             "Preferred Date Range",
             # (pd.to_datetime(data.LogTimestamp).max() - timedelta(weeks=8), pd.to_datetime(data.LogTimestamp).max()),
@@ -253,14 +302,14 @@ with tab1:
             mgtZoneOptions = [option for option in st.session_state['filteredData']['ManagementZone'].unique().tolist()+['Select All'] if option in st.session_state['filteredData']['ManagementZone'].unique().tolist()  or option == 'Select All']
             osOptions = [option for option in st.session_state['filteredData']['OS'].unique().tolist()+['Select All'] if option in st.session_state['filteredData']['OS'].unique().tolist()  or option == 'Select All']  
                     
-            col7, appOwner, appName, vendor, dataCenter, mgtZone, os = st.columns([4, 1.3, 1.3, 1, 1, 1.3, 1.3])
+            col7, appOwner, appName, vendor, dataCenter, mgtZone, os = st.columns([3, 1.3, 1.3, 1, 1, 1.3, 1.3])
             appOwner.selectbox('Application Owner', appOwnerOptions, index=len(appOwnerOptions)-1, key='ao', on_change=updateFilter, args=('ao', 'ApplicationOwner'))
             appName.selectbox('Application Name', appNameOptions, index=len(appNameOptions)-1, key='an', on_change=updateFilter, args=('an', 'ApplicationName'))
             vendor.selectbox('Vendor', vendorOptions, index=len(vendorOptions)-1, key='vend', on_change=updateFilter, args=('vend', 'Vendor'))
             dataCenter.selectbox('Data Center', dataCenterOptions, index=len(dataCenterOptions)-1, key='dc', on_change=updateFilter, args=('dc', 'Datacenter'))
             mgtZone.selectbox('Management Zone', mgtZoneOptions, index=len(mgtZoneOptions)-1, key='mz', on_change=updateFilter, args=('mz', 'ManagementZone'))
-            os.selectbox('OS', osOptions, index=len(osOptions)-1, key='oss', on_change=updateFilter, args=('oss', 'OS'))    
-        
+            os.selectbox('Operating System', osOptions, index=len(osOptions)-1, key='oss', on_change=updateFilter, args=('oss', 'OS'))    
+
             st.session_state['selectedServer'] = st.session_state['filteredData'].HostAndIP.iloc[0] if not st.session_state['filteredData'].empty else "No servers available"
             st.session_state['metricData'] = st.session_state['filteredData'].query("HostAndIP == @st.session_state['selectedServer']")
         serverMetrics()
@@ -370,8 +419,8 @@ with tab1:
                 if netType == 'Received and Sent':
                     fig = go.Figure()
                     fig.add_trace(go.Scatter(
-                        x=vizData.index, y=vizData['NetworkTrafficReceived'], fill='tozeroy', mode='lines', line=dict(color='green'), name='Traffic Received'))
-                    fig.add_trace(go.Scatter(x=vizData.index, y=vizData['NetworkTrafficSent'], fill='tonexty', mode='lines', line=dict(color='#FFEB00'),name='Traffic Sent'  ))
+                        x=vizData.index, y=vizData['NetworkTrafficReceived'], fill='tozeroy', mode='lines', line=dict(color='#00FF9C'), name='Traffic Received'))
+                    fig.add_trace(go.Scatter(x=vizData.index, y=vizData['NetworkTrafficSent'], fill='tonexty', mode='lines', line=dict(color='#FFF574'),name='Traffic Sent'  ))
                     fig.update_layout(
                         xaxis_title='Time', yaxis_title='InBound and OutBound Network Reception', height=300, margin=dict(l=0, r=0, t=10, b=0))
                     st.plotly_chart(fig, use_container_width=True)
@@ -488,9 +537,15 @@ with tab1:
         #                 margin-top: -10px;
         #             }"""):
         
+        # if len(st.session_state['startDate']) == 10 or len(st.session_state['stopDate']) == 10:
+        #     date1 = datetime.strptime(st.session_state['startDate']+' 00:00:00', "%Y-%m-%d %H:%M:%S")
+        #     date2 = datetime.strptime(st.session_state['stopDate']+' 00:00:00', "%Y-%m-%d %H:%M:%S")
+        # else:
+        #     date1 = datetime.strptime(st.session_state['startDate'], "%Y-%m-%d %H:%M:%S")
+        #     date2 = datetime.strptime(st.session_state['stopDate'], "%Y-%m-%d %H:%M:%S")
         if len(st.session_state['startDate']) == 10 or len(st.session_state['stopDate']) == 10:
-            date1 = datetime.strptime(st.session_state['startDate']+' 00:00:00', "%Y-%m-%d %H:%M:%S")
-            date2 = datetime.strptime(st.session_state['stopDate']+' 00:00:00', "%Y-%m-%d %H:%M:%S")
+            date1 = datetime.strptime(st.session_state['startDate'] + ' 00:00:00', "%Y-%m-%d %H:%M:%S")
+            date2 = datetime.strptime(st.session_state['stopDate'] + ' 00:00:00', "%Y-%m-%d %H:%M:%S")
         else:
             date1 = datetime.strptime(st.session_state['startDate'], "%Y-%m-%d %H:%M:%S")
             date2 = datetime.strptime(st.session_state['stopDate'], "%Y-%m-%d %H:%M:%S")
@@ -993,7 +1048,6 @@ if data.empty:
 st.session_state['usageMonitor'] += 1
 st.session_state['usageMonitor'] += 1
 end_time = time.time()
-uiloading_time = end_time - start_time
 # st.sidebar.markdown(f"App UI and Analysis loaded in {uiloading_time:.2f} seconds.")
 # st.sidebar.markdown(f"Data Connection and Refresh loaded in {dataloading_time:.2f} seconds.")
 

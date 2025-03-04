@@ -23,35 +23,37 @@ import time
 import schedule
 import warnings 
 warnings.filterwarnings('ignore')
-# from statsmodels.tsa.stattools import acf, pacf
-# from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from statsmodels.tsa.stattools import acf, pacf
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from modelScript.uniVariate import NathanClaire_UnivariateTimeSeries as lib
 from modelScript.uniVariateNormal import NathanClaire_UnivariateTimeSeries as lib2
 from sklearn.preprocessing import MinMaxScaler
 import plotly.express as px
 import pandas as pd
 import google.generativeai as genai
-import shelve
+import shelve   
 # import modelScript.uniVariate
 # importlib.reload(modelScript.uniVariate)
 
 
-# def liveDataHandler(db_path, table_name):
-# # Connect to the SQLite database.
-#     conn = sqlite3.connect(db_path)
-#     query = f"""
-#     SELECT * FROM '{table_name}' 
-#     """
-#     dataset = pd.read_sql_query(query, conn)
-#     dataset.to_parquet('modellingData.parquet', engine='fastparquet', index=False)
-#     conn.close()
-#     dataset = pd.read_parquet('modellingData.parquet', engine='fastparquet')
-#     return dataset
+def liveDataHandler(db_path, table_name):
+# Connect to the SQLite database.
+    conn = sqlite3.connect(db_path)
+    query = f"""
+    SELECT * FROM '{table_name}' 
+    """
+    dataset = pd.read_sql_query(query, conn)
+    dataset.to_parquet('modellingData.parquet', engine='fastparquet', index=False)
+    conn.close()
+    dataset = pd.read_parquet('modellingData.parquet', engine='fastparquet')
+    return dataset
 
-data = pd.read_parquet('workingData.parquet', engine='fastparquet')
+data = liveDataHandler('EdgeDB 2', 'Infra_Utilization')
 data['HostAndIP'] = data['Hostname'] + data['IPAddress'].str.replace('"', '')
 modellingData = data.copy()
 modellingData['LogTimestamp'] = pd.to_datetime(modellingData['LogTimestamp'])
+diskData = data.copy()
+diskData['LogTimestamp'] = pd.to_datetime(diskData['LogTimestamp'])
 
 
 if not data.empty:
@@ -89,7 +91,7 @@ features = ['LogTimestamp', 'HostAndIP', 'CPUUsage', 'MemoryUsage', 'TotalMemory
 # Navigatio Top Bar 
 head1, head2, head3 = st.columns([1, 4, 1])
 with head2:
-    head2.markdown(f"""
+    head2.markdown("""
     <div class="two alt-two">
     <h1>Infrastructure Analytics System
         
@@ -97,7 +99,15 @@ with head2:
     </div>""", unsafe_allow_html=True)
 
 @st.fragment
-def resourceUtilization():    
+def resourceUtilization():  # Resource Utilization of latest data
+    """
+    The goal is to get the weight average of all resources as shared according to their weights, 
+    Got the latest data. Find the mean values of some numerical and latest values of some others by grouping by and sorting
+    To get their weighted average, the data has to be mormalized. To normalize, we need lowest and max values. 
+    So we create it: min_row, and max_row. Convert to a dataframe, and concatenate with the grouped and sorted data
+    Then normalize this new data to bring them within 0 and 1. Then multiply each column according to their defined weights
+    Return only  the actual data, with the exception of the created min_row and max_row. To except, we put them at the last rows
+    """  
     global usageData
     usageData = data[data['LogTimestamp'] >= latestLog]
     usageData = usageData.sort_values(by='LogTimestamp').groupby(['HostAndIP', 'LogTimestamp']).agg({
@@ -157,9 +167,9 @@ def resourceUtilization():
 
 
 if 'timeInterval' not in ss:
-# ss.serverName = data.HostAndIP.unique().tolist()[0]
     ss.timeInterval = 10
-
+# def updateTimeInterval():
+#     ss.timeInterval = 
 ds = data.copy()
 
 
@@ -251,9 +261,8 @@ with tab1:
             control, future = st.columns([1,2],border = True)
             with control:
                 c1, c2 = control.columns([1,1])
-                c1.number_input('Input time interval',min_value=1, max_value=100, value=ss.timeInterval , help = 'Future forecast time interval in numbers')   
-                c2.selectbox('Select forecast time timeframe', help = 'Timeframe in minutes, hours, day, week, year',index = 0, options=['Minute', 'Hour', 'Day', 'Month', 'Year'], key = 'timeframe')
-
+                c1.number_input('Input time interval', min_value=1, max_value=100 , help = 'Future forecast time interval in numbers', key='timeInterval')   
+                c2.selectbox('Select forecast timeframe', help = 'Timeframe in minutes, hours, day, week, year',index = 0, options=['Minute', 'Hour', 'Day'], key = 'timeframe')
                 c3, c4 = control.columns([1,1], vertical_alignment='bottom')
                 c3.number_input('Input future forecast days', help = 'Input the number of future days to be forecasted by the model', value = 3, min_value=1, max_value=30, key='futureDays')
                 c4.button('Future Forecast', help=f'Press the button to predict {ss.futureDays}days into the future', key='predict')
@@ -546,68 +555,112 @@ with tab3:
 
 
 ##################################################################################################################
+if 'timeIntervals' not in ss:
+    ss.timeIntervals = 10
+if 'filterData' not in ss:
+    ss.useFullData = False
+
+def predictionInstance(classInstance): #This is done to be able to control the calls within the predictor class 
+    split_index = int(len(diskModel.data) * 0.7)
+    split_date = diskModel.data.iloc[split_index: split_index+1].index.values[0]
+    classInstance.generateModelData(split_date=split_date, show_split=False)
+    classInstance.modelling(plotPerformance=True)
+    return classInstance
 
 def diskPredModel(dataset):
-    diskModel = lib2(dataset, 'TotalFreeDiskGB', 'LogTimestamp', ss.serverNames, 10) 
+    diskModel = lib2(dataset, 'TotalFreeDiskGB', 'LogTimestamp', ss.serverNames, ss.timeIntervals) 
     return diskModel
 
+def diskDataPrep(data):
+    ds = data.copy()
+    ds.sort_values(ascending = True, by = 'LogTimestamp', inplace = True)
+    ds.set_index('LogTimestamp', inplace=True)
+    ds['DiskChange'] = ds['TotalFreeDiskGB'].diff()
+    threshold = 2  # Define a threshold for significant increase
+    last_interference_index = ds[ds['DiskChange'] > threshold].index.max()  # Identify the last point of significant increase (manual deletion) 
+    ds = ds[ds.index >= last_interference_index] # Filter the data from the last interference point
+    ds.reset_index(inplace = True)
+    return ds
 
 @st.fragment
-def diskForecast():
-    col1, col2= st.columns([1.5, 3], border=True)
-    with col1:
-        col1.selectbox('Select server to forecast', [i for i in data['HostAndIP'].unique().tolist()], key = 'serverNames', index = 0)
-        col1.markdown('<br>', unsafe_allow_html=True)
-    with col2:
-        diskModel = diskPredModel(data)
-        col2.plotly_chart(diskModel.visual(), use_container_width=True, theme='streamlit')
+def generalDiskForecast():
+    open1, open2, open3 = st.columns([1,2,1])
+    with open1:
+        open1.toggle('Filter Data After Last Manual Disk Cleanup', key='filterData', help="When enabled, the model will ignore historical data before the last detected increase in free disk space. This helps eliminate the impact of random manual interventions, leading to more accurate predictions. If disabled, the model will use the entire dataset, including past manual interventions. Pls read the information in the Forecasting Information expander for more details.")
+    with open2:
+        with st.expander('Forecasting Information', expanded=False):
+            st.warning('Disk space depletion typically occurs gradually over time. However, a sudden increase in free disk space often results from manual intervention, such as deleting files or expanding storage. Since these interventions occur randomly and disrupt the natural trend, the algorithm detects the most recent instance of a significant space increase and uses data only from that point onward. This ensures the model is trained on consistent, uninterrupted trends, improving the accuracy of disk usage predictions.')
+
+    if ss.filterData:
+        diskPredData = diskDataPrep(diskData)
+    else:
+        diskPredData = diskData.copy()
+
+    global diskModel
+    with stylable_container(
+        key="visual_container43",
+        css_styles=[
+            """{
+        # border: 1px solid rgba(49, 51, 63, 0.2);
+        # box-shadow: rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px;
+        box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+        # border-radius: 0.3rem;
+        padding: 20px 20px 20px 20px;}""",]
+        ): 
+        col1, col2= st.columns([1.5, 3], border=True)
+        with col1:
+            col1.selectbox('Select server to forecast', [i for i in data['HostAndIP'].unique().tolist()], key = 'serverNames', index = 0)
+            col1.markdown('<br>', unsafe_allow_html=True)
+        with col2:
+            diskModel = diskPredModel(diskPredData)
+            if diskModel.data.empty:
+                col2.warning('No data available for forecasting')
+            else:
+                col2.plotly_chart(diskModel.visual(), use_container_width=True)
+
+    with stylable_container(
+        key="visual_container43",
+        css_styles=[
+            """{
+        # border: 1px solid rgba(49, 51, 63, 0.2);
+        # box-shadow: rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px;
+        box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+        # border-radius: 0.3rem;
+        padding: 20px 20px 20px 20px;}""",]
+        ): 
+        controls, futures = st.columns([1,2],border = True)
+        with controls:
+            c1, c2 = controls.columns([1,1])
+            c1.number_input('Input time interval',min_value=1, max_value=100, value=ss.timeIntervals, help = 'Future forecast time interval in numbers', key = ss.timeIntervals)   
+            c2.selectbox('Select forecast time timeframe', help = 'Timeframe in minutes, hours, day, week, year',index = 0, options=['Minute', 'Hour', 'Day','Month', 'Year'], key = 'timeframe1')
+            c3, c4 = controls.columns([1,1], vertical_alignment='bottom')
+            c3.number_input('Input future forecast days', help = 'Input the number of future days to be forecasted by the model', value = 3, min_value=1,max_value=30, key='futureDays1')
+            c4.button('Future Forecast', help=f'Press the button to predict {ss.futureDays1}days into the future', key='predicts', disabled= True if diskModel.data.empty else False)
+        with futures:
+            futureViews, forecastViews = futures.tabs(['Disk Depletion Forecast', 'Forecast Plot'])    
+            if ss.predicts:
+                with futureViews:
+                    if diskModel.data.shape[0] > 10:
+                        predictor = predictionInstance(diskModel)
+                        outputData = predictor.futureForecast(timeDiff=ss.timeIntervals, interval=ss.timeframe1, NumOfDays=ss.futureDays1, getForecast=True,plotForecast=False)
+                        outputData.rename(columns =  {'ds':'DateAndTime', 'yhat':'Predicted Value', 'yhat_upper': 'UpperBound', 'yhat_lower':'LowerBound'}, inplace =True)
+                        outputData['UpperBound'] = outputData['UpperBound'].round(2)
+                        outputData['LowerBound'] = outputData['LowerBound'].round(2)
+                        outputData.reset_index(drop = True, inplace = True)
+                        futureViews.dataframe(outputData, use_container_width=True)
+                        saving = outputData.to_csv(index=False).encode('utf-8')
+                        st.download_button(
+                        "Click to download your forecasted values",
+                        saving,"diskDepletionForecast.csv","text/csv",key='download-csv')
+                    else:
+                        futureViews.warning('Insufficient data for forecasting')
+                with forecastViews:
+                    if diskModel.data.shape[0] > 10:
+                        forecastViews.pyplot(predictor.futureForecast(timeDiff=ss.timeIntervals, interval=ss.timeframe1, NumOfDays=ss.futureDays1, getForecast=False, plotForecast=True))
+                    else:
+                        forecastViews.warning('Insufficient data for forecasting')
+
         
 
-
-    # def futurePred():
-    #     # with st.container(height=400, border=False):
-    #         control, future = st.columns([1,2],border = True)
-    #         with control:
-    #             c1, c2 = control.columns([1,1])
-    #             c1.number_input('Input time interval',min_value=1, max_value=100, value=ss.timeInterval , help = 'Future forecast time interval in numbers')   
-    #             c2.selectbox('Select forecast time timeframe', help = 'Timeframe in minutes, hours, day, week, year',index = 0, options=['Minute', 'Hour', 'Day', 'Month', 'Year'], key = 'timeframe')
-
-    #             c3, c4 = control.columns([1,1], vertical_alignment='bottom')
-    #             c3.number_input('Input future forecast days', help = 'Input the number of future days to be forecasted by the model', value = 3, min_value=1, max_value=30, key='futureDays')
-    #             c4.button('Future Forecast', help=f'Press the button to predict {ss.futureDays}days into the future', key='predict')
-    #         with future:
-    #             futureView, forecastView = future.tabs(['Future Focrecast', 'Forecast Plot'])    
-    #             if ss.predict:
-    #                 with futureView:
-    #                     out = tsModel(ts)
-    #                     outputData = out.futureForecast(timeDiff=ss.timeInterval, interval=ss.timeframe, NumOfDays=ss.futureDays, getForecast=True, plotForecast=False)
-    #                     outputData.rename(columns =  {'ds':'DateAndTime', 'yhat':'Predicted Value', 'yhat_upper': 'UpperBound', 'yhat_lower':'LowerBound'}, inplace = True)
-    #                     outputData['UpperBound'] = outputData['UpperBound'].round(2)
-    #                     outputData['LowerBound'] = outputData['LowerBound'].round(2)
-    #                     outputData.reset_index(drop = True, inplace = True)
-    #                     futureView.dataframe(outputData, use_container_width=True)
-    #                     saving = outputData.to_csv(index=False).encode('utf-8')
-    #                     st.download_button(
-    #                     "Click to download your forecasted values",
-    #                     saving,
-    #                     "forecastedValues.csv",
-    #                     "text/csv",
-    #                     key='download-csv')
-    #                 with forecastView:
-    #                     forecastView.pyplot(tsModel(ts).futureForecast(timeDiff=ss.timeInterval, interval=ss.timeframe, NumOfDays=ss.futureDays, getForecast=False, plotForecast=True))
-    
-    # with stylable_container(
-    #                         key="visual_container43",
-    #                         css_styles=[
-    #                             """{
-    #                                     # border: 1px solid rgba(49, 51, 63, 0.2);
-    #                                     # box-shadow: rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px;
-    #                                     box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
-    #                                     # border-radius: 0.3rem;
-    #                                     padding: 20px 20px 20px 20px;
-    #                             }""",]
-    #                                 ):  
-    #     futurePred()
-
 with tab2:
-    diskForecast()
+    generalDiskForecast()

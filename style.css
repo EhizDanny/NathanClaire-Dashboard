@@ -14,19 +14,20 @@
 .heading {
     display: flex;
     padding-top: 10px;
-    margin-top: -60px ; /* Centers the container horizontally */
+    margin-top: -55px ;
+    margin-bottom: -10px;
     align-items: center; /* Vertically center items */
     justify-content: center; /* Horizontally center items */
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e0e0e0;
-    box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
-    max-width: 800px; /* Set a maximum width for the container */
+    /* background-color: #f8f9fa; */
+    /* border-bottom: 1px solid #e0e0e0; */
+    /* box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px; */
+    /* max-width: 800px; Set a maximum width for the container */
     width: 100%; /* Makes the container responsive */
     text-align: center; /* Center text within the container */
 }
     
 .custom-container  {
-    background-color: #f0f0f0;
+    background-color: #0C3245;
     padding: 20px;
     border: 1px solid green;
     border-radius: 8px;
@@ -35,20 +36,16 @@
 }
 
 .metrics {
-    height: 3.7rem;
+    width: 17rem;
+    border-radius: 1.2rem;
+    height: 4.0rem;
     margin-top: -7px;
+    margin-bottom: 20px;
     padding-top: 5px;
     align-items: center;
     justify-content: space-between; 
-    background-color: #f8f9fa;
-    /* border-bottom: 1px solid #e0e0e0; */
+    background-color: #F0F2F6;
+    border-bottom: 1px solid #eebb22;
     box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
 }
-
-
-/* .heading {
-    background-color: #092635 ;
-    width: 90%;
-    color: ;
-} */
 

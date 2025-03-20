@@ -6,18 +6,24 @@ import numpy as np
 import sqlite3
 import json
 from sqlalchemy import create_engine
+from datetime import datetime, timedelta
+import gc
+from memory_profiler import profile
+
+three_days_ago_str = (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d %H:%M:%S')
 
 # Config Variables 
 with open('config.json') as config_file:
     configVar = json.load(config_file)
 
-clientServer = configVar['client_server']
-clientDB = configVar['client_db']
-clientDBUserName = configVar['client_db_username']
-clientDBPass = configVar['client_db_password']
-client_table_name = configVar['client_table_name']
-
-
+ClientServer = configVar['client_server']
+ClientDB = configVar['client_db']
+ClientDBUserName = configVar['client_db_username']
+ClientDBPass = configVar['client_db_password']
+Client_table_name1 = configVar['client_table_name1']
+Client_table_name2 = configVar['client_table_name2']
+driver = configVar['driver']
+ClientDBPort = configVar['client_db_port']
 
 
 def connectClientDB(server: str, database: str, username: str, password: str) -> str:
@@ -32,54 +38,97 @@ def connectClientDB(server: str, database: str, username: str, password: str) ->
     Returns:
         str: returns the pyodbc connection string, to be used an input to the pyodbc.connect() function
     """   
-    connection_string = f"mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server"
-    # connection_string = f'DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}'
-    connection = create_engine(connection_string) 
-    return connection
+    # connection_string = f"mssql+pyodbc://{username}:{password}@{server}/{database}?driver=ODBC+Driver+17+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes" #&Connection+Timeout=30;
+    # connection = create_engine(connection_string) 
+    connection_string = (
+        f"Driver={driver};"
+        f"Server=tcp:{ClientServer},{ClientDBPort};"
+        f"Database={ClientDB};"
+        f"Uid={ClientDBUserName};"
+        f"Pwd={ClientDBPass};"
+        f"Encrypt=yes;"
+        f"TrustServerCertificate=yes;"
+        f"Connection Timeout=30;"
+    )
+    try:
+        conn = pyodbc.connect(connection_string)
+        print("Connection to client database successful!")
+        return conn
+    except Exception as e:
+        print("Couldnt connect to database: ",e)
+        return None
 
-
-def fetchFromClientDB(clientTableName, last_update_time=None):
+def tableExist(tableName: str, dbName: str = 'EdgeDB.db') -> bool:
+    """
+    Check if a table exists in the SQLite database.
+    Args:
+        tableName (str): The name of the table to check.
+        dbName (str): The name of the SQLite database file.
+    Returns:
+        bool: True if the table exists, False otherwise.
+    """
+    conn = sqlite3.connect(dbName)
+    c = conn.cursor()
+    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?;", (tableName,))
+    table_exists = c.fetchone() is not None
+    conn.close()
+    if table_exists:
+        return True
+    else:
+        return False
+    
+def fetchFromClientDB(tab1, tab2):
     """
     Fetch data from client database and return it as a DataFrame.
     If last_update_time is provided, only fetch rows updated after this time.
     """
-    server = clientServer 
-    database = clientDB
-    username = clientDBUserName            
-    password = clientDBPass 
+    server = ClientServer 
+    database = ClientDB
+    username = ClientDBUserName            
+    password = ClientDBPass 
     conn = connectClientDB(server, database, username, password)
 
-    # On the first run, metaData table doesnt exist....
-    # This code then checks if the Metadata table exists
-    metadata_exists = False
-    try:
-        c = conn.cursor()
-        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='Metadata';")
-        metadata_exists = c.fetchone() is not None
-    except Exception as e:
-        # print(f"Error checking Metadata table existence; {e}")
-        pass
-
-    # If the Metadata table exists, get the last update time
-    if metadata_exists:
+    if tableExist('Infra_Utilization'):
         last_update_time = get_last_update_time()
-
-    # Fetch last update if last_update_time is provided
-    if last_update_time is not None:
         query = f"""
-        SELECT * FROM {clientTableName} 
-        WHERE LogTimestamp > '{last_update_time}'
+            SELECT
+                {tab1}.LogTimestamp, {tab1}.Hostname, {tab1}.CPUUsage, {tab1}.MemoryUsage, {tab1}.TotalMemory, {tab1}.DiskUsage,
+                {tab1}.TotalFreeDiskGB, {tab1}.TotalDiskSpaceGB, {tab1}.DiskLatency, {tab1}.ReadLatency,
+                {tab1}.WriteLatency, {tab1}.NetworkTrafficAggregate, {tab1}.NetworkTrafficSent,
+                {tab1}.NetworkTrafficReceived,  {tab1}.IPAddress, {tab1}.OperatingSystem,
+                {tab1}.OS, {tab1}.DriveLetter,
+                {tab2}.ManagementZone, {tab2}.DataCenter, {tab2}.DatacenterRegion, {tab2}.ApplicationName,
+                {tab2}.ApplicationOwner, {tab2}.vendor, {tab2}.userIP, {tab2}.CreatedAt, {tab2}.CreatedBy
+            FROM {tab1}
+            LEFT JOIN {tab2}
+            ON {tab2}.hostname = {tab1}.Hostname 
+            where {tab1}.LogTimestamp > '{last_update_time}'
         """
-        print(f'collecting data from last update time; {last_update_time}\n')
-    else:
-        print(f'\nfetching data for the first time. default time is 2months of data')
-        query = f"SELECT * FROM {clientTableName}"  # Fetch all data on the first run
+        print(f"Fetching data from {tab1} and {tab2} updated after {last_update_time}")
+    else:  # Fetch all data on the first run
+        query = f"""
+            SELECT 
+                {tab1}.LogTimestamp, {tab1}.Hostname, {tab1}.CPUUsage, {tab1}.MemoryUsage, {tab1}.TotalMemory, {tab1}.DiskUsage,
+                {tab1}.TotalFreeDiskGB, {tab1}.TotalDiskSpaceGB, {tab1}.DiskLatency, {tab1}.ReadLatency,
+                {tab1}.WriteLatency, {tab1}.NetworkTrafficAggregate, {tab1}.NetworkTrafficSent,
+                {tab1}.NetworkTrafficReceived,  {tab1}.IPAddress, {tab1}.OperatingSystem,
+                {tab1}.OS, {tab1}.DriveLetter,
+                {tab2}.ManagementZone, {tab2}.DataCenter, {tab2}.DatacenterRegion, {tab2}.ApplicationName,
+                {tab2}.ApplicationOwner, {tab2}.vendor, {tab2}.userIP, {tab2}.CreatedAt, {tab2}.CreatedBy
+            FROM {tab1}
+            LEFT JOIN {tab2}
+            ON {tab2}.hostname = {tab1}.Hostname 
+            WHERE {tab1}.LogTimestamp >= '{three_days_ago_str}'
+        """
+        print(f"Fetching all data from {tab1} and {tab2}")
+    try:
+        return pd.read_sql(query, conn)
+    except Exception as e:
+        print(f"Error occurred while fetching data from client database: {e}")
+        return pd.DataFrame()
 
-    df = pd.read_sql(query, conn)
-    #conn.close()
-    return df
 
-def saveToSQLite(frame: pd.DataFrame):
+def saveToSQLite(data: pd.DataFrame):
     """
     Save a DataFrame to an SQLite database.
 
@@ -87,11 +136,11 @@ def saveToSQLite(frame: pd.DataFrame):
     'Infra_Utilization' table in the SQLite database. If the table does 
     not exist, it will be created. Additionally, the function retrieves 
     the maximum timestamp from the 'LogTimestamp' column of the 
-    'Infra_Utilization' table and stores it in a 'Metadata' table to 
+    'Infra_Utilization' table and stores it in a 'latestTime' table to 
     keep track of the last update time.
 
     Parameters:
-    frame (pd.DataFrame): The DataFrame containing the data to be saved. 
+    data (pd.DataFrame): The DataFrame containing the data to be saved. 
                           It must include a 'LogTimestamp' column for 
                           tracking updates.
 
@@ -104,69 +153,60 @@ def saveToSQLite(frame: pd.DataFrame):
     Exception: If an error occurs during the database operations, 
                an exception will be raised and printed to the console.
     """
-    with sqlite3.connect('EdgeDB') as conn:
-        c = conn.cursor()
-        
+    with sqlite3.connect('EdgeDB.db') as conn:
+        c = conn.cursor()  
         try:
-            # If the table doesn't exist, create it. if it exists, append new rows to it
-            frame.to_sql('Infra_Utilization', conn, if_exists='append', index=False) 
-            
-            # Get the lastUpdate from this newly updated data
-            c.execute("SELECT MAX(LogTimestamp) FROM Infra_Utilization")     
-            lastUpdate = c.fetchone()
-            
-            # Create a table to store the lastUpdate time
-            c.execute("""CREATE TABLE IF NOT EXISTS Metadata (
-                      id INTEGER PRIMARY KEY AUTOINCREMENT,
-                      last_update_time TEXT)
-                """)
-            
-            if lastUpdate is not None and lastUpdate[0] is not None:
-                c.execute("INSERT INTO Metadata (last_update_time) VALUES (?)", (lastUpdate[0],))
+            if data is not None:
+                # If the table doesn't exist, create it. if it exists, append new rows to it
+                data.to_sql('Infra_Utilization', conn, if_exists='append', index=False) 
+                saveLastUpdateTime()
+                del data
+            else:
+                print('Couldnt save empty data to SQLite')
+                pass
         except Exception as e:
             print(f"Error occurred while saving to SQLite: {e}")
+        gc.collect()
+            
+def saveLastUpdateTime():
+    """
+    Saves the last update time to 'latestTime' table in the sqliteDB
+    Returns:
+        None: It doesnt return any value. All it does is save latest time to the database 
+    """
+    with sqlite3.connect('EdgeDB.db') as conn:
+        c = conn.cursor()
+        c.execute("SELECT MAX(LogTimestamp) FROM Infra_Utilization")  # Get the latest timestamp from the Logtimestamp column   
+        lastUpdate = c.fetchone()
+
+        # Create a table to store the lastUpdate time
+        c.execute("""CREATE TABLE IF NOT EXISTS latestLogTime (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                last_update_time TEXT)
+            """)
+        c.execute("INSERT INTO latestLogTime (last_update_time) VALUES (?)", (lastUpdate[0],))
+        conn.commit()
+        del lastUpdate
+
 
 def get_last_update_time() -> str:
     """Get the last update time from the SQLite database.
     Returns:
         lastUpdateTime: The latest time in a SQL table and outputs the time in 'YYYY-MM-DD HH:MM:SS' format.
     """    
-    # Implementing a check to see if the metadata table exists
-    metadata_exists = False  
-
-    conn = sqlite3.connect('EdgeDB')
-    c = conn.cursor()
-    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='Metadata';")
-    metadata_exists = c.fetchone() is not None
-
-    if metadata_exists:
-        c.execute("""
-                SELECT last_update_time FROM Metadata
-                ORDER BY id DESC
-                LIMIT 1
-                """)
+    with  sqlite3.connect('EdgeDB.db') as conn:
+        c = conn.cursor()
+        c.execute("SELECT last_update_time FROM latestLogTime ORDER BY id DESC LIMIT 1")    
         lastUpdate = c.fetchone()
-        conn.close()
-
-        if lastUpdate is None:
-            return None
-        return lastUpdate[0]
-    else:
-        pass
+        return lastUpdate[0] if lastUpdate is not None else None
 
 
-# def fetchData():
-#     """
-#     Returns:
-#         pandas: [description]
-#     """    
-#     server = 'EHIZDANIEL273A' #EHIZDANIEL273A'4.149.240.230' #'EHIZDANIEL273A'
-#     database = 'Dynatrace_API'
-#     username = 'sa' #'data_science' #'sa'
-#     password = 'danielle1990' #'2424DATA++' #'danielle1990'
-#     conn = connectToClientDB(server, database, username, password)
-#     cursor = conn.cursor()
-#     query = "SELECT * FROM Infrastructure_Utilization" # Query to fetch the data from source
-#     df = pd.read_sql(query, conn) # Use pandas to read the SQL query directly into a DataFrame
-#     conn.close() # Closr the connection
-#     return df
+# def main():
+#     print("Starting main function...")
+#     data = fetchFromClientDB(Client_table_name)
+#     print("Data fetched from client DB.")
+#     saveToSQLite(data)
+#     print("Data saved to SQLite.")
+
+# if __name__ == '__main__':
+#     main()

@@ -1,7 +1,30 @@
 {
-    "client_server": "4.149.240.230",
+    "client_server": "48.217.85.69",
     "client_db": "Dynatrace_API",
-    "client_db_username": "data_analysis",
-    "client_db_password": "ncg-data-123",
-    "client_table_name": "Infrastructure_Utilization"
+    "client_db_username": "analysisdev",
+    "client_db_password": "analysisdevadmin",
+    "client_table_name1": "Infrastructure_utilization",
+    "client_table_name2": "edgecollectormzsettings",
+    "driver": "{ODBC Driver 17 for SQL Server}",
+    "client_db_port": "1433",
+
+    "smtp_server": "smtp.gmail.com",
+    "port": 587,
+    "from_email": "ncgalertsystem@gmail.com",
+    "app_password": "xpsk cedv cive qsgb",
+    "thresholds": {
+        "cpu_thresholds": {
+            "warning": 85,
+            "critical": 95
+        },
+        "mem_thresholds": {
+            "warning": 85,
+            "critical": 95
+        },
+        "disk_thresholds": {
+            "warning": 15,
+            "critical": 5
+        }
+    }
 }
+
